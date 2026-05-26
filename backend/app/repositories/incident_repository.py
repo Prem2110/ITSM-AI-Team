@@ -43,6 +43,7 @@ class IncidentRepository:
             requester_id=data.requester_id,
             assignee_id=data.assignee_id,
             sla_resolution_due=_sla_due(data.priority, now),
+            sla_breached=False,
             created_at=now,
             updated_at=now,
         )

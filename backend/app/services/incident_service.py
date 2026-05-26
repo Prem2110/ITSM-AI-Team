@@ -192,7 +192,12 @@ class IncidentService:
             return
         if incident.sla_resolution_due is None:
             return
-        if incident.sla_resolution_due < utcnow():
+        # SQLite returns naive datetimes; strip tz for safe comparison
+        due = incident.sla_resolution_due
+        now = utcnow()
+        due_naive = due.replace(tzinfo=None) if due.tzinfo is not None else due
+        now_naive = now.replace(tzinfo=None) if now.tzinfo is not None else now
+        if due_naive < now_naive:
             await self._inc.update(incident.id, {
                 "sla_breached": True,
                 "updated_at": utcnow(),
