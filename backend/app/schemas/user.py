@@ -10,6 +10,13 @@ class UserCreate(BaseModel):
     name: str
     role: str
 
+    @field_validator("email")
+    @classmethod
+    def valid_email(cls, v: str) -> str:
+        if "@" not in v or len(v) < 5:
+            raise ValueError("must be a valid email address")
+        return v.lower()
+
     @field_validator("role")
     @classmethod
     def valid_role(cls, v: str) -> str:
