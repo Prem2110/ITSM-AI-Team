@@ -166,6 +166,8 @@ if bind.dialect.name == "hana":
 
 Note: Alembic autogenerate does not generate the HANA sequence block — it is added manually post-generation, as it is today. The migration file is not fully auto-generated; it is auto-generated then patched.
 
+> **HANA case-folding follow-up (non-blocker):** HANA folds unquoted identifiers to uppercase. `INC_SEQ` is already uppercase, so `CREATE SEQUENCE INC_SEQ` and `SELECT INC_SEQ.NEXTVAL` work without quoting. But once a prefix is applied — e.g. `ITSM_DEV_INC_SEQ` — consistency with table names (which are lowercase, e.g. `ITSM_DEV_users`) becomes a concern. Verify during HANA compatibility work whether the sequence DDL and the `SELECT ... NEXTVAL` query need explicit quoting to match the case of the name as stored. If there is any risk, standardize all identifiers to either all-uppercase with unquoted references, or all-lowercase with double-quoted references — and apply that consistently across both sequence and table DDL. This is a follow-up for the HANA prompt, not a blocker for the prefix work on SQLite.
+
 ---
 
 ### 6. `alembic/env.py`
@@ -209,11 +211,12 @@ A new section "Changing the table prefix" documents:
 
 1. Show diff in models — each `__tablename__` and FK string uses `tbl()`
 2. Show `config.py` — `table_prefix` field + `tbl()` helper
-3. Show `alembic/env.py` — no change (confirm)
-4. Drop `dev.db`, migrate with `TABLE_PREFIX=""` — inspect sqlite3, confirm `users`, `incidents`, `incident_events`, `attachments`
-5. Drop `dev.db`, migrate with `TABLE_PREFIX="ITSM_DEV_"` — inspect sqlite3, confirm `ITSM_DEV_users`, `ITSM_DEV_incidents`, etc.
-6. `uv run pytest` — all 87 tests pass with empty prefix
-7. Show updated `.env.example`
+3. Confirm `alembic/env.py` — no change needed
+4. **Empty prefix run:** Drop `dev.db`, delete migration, regenerate with `TABLE_PREFIX=""`, apply. Run `sqlite3 dev.db .schema` — confirm tables are `users`, `incidents`, `incident_events`, `attachments`; confirm index names are `ix_users_email`, `ix_incidents_number`, `ix_incident_events_incident_created`, etc.
+5. **Prefixed run:** Drop `dev.db`, delete migration, regenerate with `TABLE_PREFIX="ITSM_TEST_"`, apply. Run `sqlite3 dev.db .schema` — confirm every identifier carries the prefix: `ITSM_TEST_users`, `ITSM_TEST_incidents`, `ix_ITSM_TEST_users_email`, `fk_ITSM_TEST_incidents_requester_id_ITSM_TEST_users`, etc. Show both `.schema` outputs side-by-side as proof.
+6. **Test suite:** Reset to `TABLE_PREFIX=""`, run `uv run pytest` — all 87 tests pass.
+7. **Seed script:** Run seed with `TABLE_PREFIX="ITSM_TEST_"` — confirm it completes without error and data lands in prefixed tables.
+8. Show updated `.env.example`
 
 ---
 
