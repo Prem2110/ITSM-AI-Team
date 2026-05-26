@@ -36,3 +36,10 @@ class AttachmentRepository:
             select(Attachment).where(Attachment.id == attachment_id)
         )
         return result.scalar_one_or_none()
+
+    async def delete(self, attachment_id: str) -> bool:
+        att = await self.get_by_id(attachment_id)
+        if att is None:
+            return False
+        await self.session.delete(att)
+        return True

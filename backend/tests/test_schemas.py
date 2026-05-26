@@ -3,7 +3,7 @@ import pytest
 from datetime import datetime
 from pydantic import ValidationError
 from app.schemas.user import UserCreate, UserResponse
-from app.schemas.incident import IncidentCreate, IncidentUpdate, IncidentResponse
+from app.schemas.incident import IncidentCreate, IncidentPatchRequest, IncidentResponse
 from app.schemas.incident_event import IncidentEventCreate, IncidentEventResponse
 from app.schemas.attachment import AttachmentResponse
 
@@ -28,7 +28,6 @@ def test_incident_create_valid():
         requester_id="some-uuid",
     )
     assert i.priority == 1
-    assert i.state == "new"
 
 
 def test_incident_create_invalid_priority():
@@ -56,7 +55,7 @@ def test_incident_create_invalid_source():
 
 
 def test_incident_update_partial():
-    u = IncidentUpdate(title="Updated title")
+    u = IncidentPatchRequest(title="Updated title")
     assert u.title == "Updated title"
     assert u.description is None
 

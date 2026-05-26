@@ -41,6 +41,12 @@ class UserRepository:
         )
         return list(result.scalars().all())
 
+    async def list_by_role(self, role: str) -> list[User]:
+        result = await self.session.execute(
+            select(User).where(User.role == role, User.active.is_(True)).order_by(User.name)
+        )
+        return list(result.scalars().all())
+
     async def update(self, user_id: str, fields: dict) -> User | None:
         user = await self.get_by_id(user_id)
         if user is None:

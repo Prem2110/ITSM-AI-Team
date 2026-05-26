@@ -2,6 +2,7 @@ from __future__ import annotations
 import uuid
 import pytest
 from datetime import datetime
+from tests.conftest import _seed_user
 from app.repositories.user_repository import UserRepository
 from app.repositories.incident_repository import IncidentRepository
 from app.repositories.incident_event_repository import IncidentEventRepository
@@ -195,3 +196,106 @@ async def test_list_attachments_for_incident(db_session):
     results = await att_repo.list_for_incident(inc.id)
     assert len(results) == 1
     assert results[0].filename == "a.pdf"
+
+
+# ---- New tests for Task 2 enhancements ----
+
+async def _make_incident(session, requester_id: str, title: str = "Test", priority: int = 3):
+    repo = IncidentRepository(session)
+    return await repo.create(IncidentCreate(
+        title=title,
+        description="desc",
+        priority=priority,
+        category="Network",
+        source="web",
+        requester_id=requester_id,
+    ))
+
+
+async def test_incident_list_filter_unassigned(db_session):
+    user = await UserRepository(db_session).create(UserCreate(email="u@t.com", name="U", role="agent"))
+    await db_session.flush()
+    inc = await _make_incident(db_session, user.id)
+    await db_session.flush()
+    # unassigned filter
+    results = await IncidentRepository(db_session).list(assignee_id="unassigned")
+    assert any(i.id == inc.id for i in results)
+
+
+async def test_incident_list_filter_q(db_session):
+    user = await UserRepository(db_session).create(UserCreate(email="u2@t.com", name="U2", role="agent"))
+    await db_session.flush()
+    await _make_incident(db_session, user.id, title="Network is down")
+    await _make_incident(db_session, user.id, title="Printer broken")
+    await db_session.flush()
+    results = await IncidentRepository(db_session).list(q="network")
+    assert len(results) == 1
+    assert "Network" in results[0].title
+
+
+async def test_incident_count_matches_list(db_session):
+    user = await UserRepository(db_session).create(UserCreate(email="u3@t.com", name="U3", role="agent"))
+    await db_session.flush()
+    for i in range(3):
+        await _make_incident(db_session, user.id, title=f"Inc {i}")
+    await db_session.flush()
+    count = await IncidentRepository(db_session).count()
+    items = await IncidentRepository(db_session).list()
+    assert count == len(items)
+
+
+async def test_event_repo_pagination(db_session):
+    user = await UserRepository(db_session).create(UserCreate(email="u4@t.com", name="U4", role="agent"))
+    await db_session.flush()
+    inc = await _make_incident(db_session, user.id)
+    await db_session.flush()
+    repo = IncidentEventRepository(db_session)
+    for i in range(5):
+        await repo.create(IncidentEventCreate(
+            incident_id=inc.id, actor_id=user.id,
+            event_type="comment", body=f"comment {i}",
+        ))
+    await db_session.flush()
+    page1 = await repo.list_for_incident(inc.id, limit=2, offset=0, order="asc")
+    assert len(page1) == 2
+    total = await repo.count_for_incident(inc.id)
+    assert total == 5
+
+
+async def test_user_repo_list_by_role(db_session):
+    await UserRepository(db_session).create(UserCreate(email="a1@t.com", name="A1", role="agent"))
+    await UserRepository(db_session).create(UserCreate(email="r1@t.com", name="R1", role="requester"))
+    await db_session.flush()
+    agents = await UserRepository(db_session).list_by_role("agent")
+    assert all(u.role == "agent" for u in agents)
+
+
+async def test_attachment_repo_delete(db_session):
+    user = await UserRepository(db_session).create(UserCreate(email="u5@t.com", name="U5", role="agent"))
+    await db_session.flush()
+    inc = await _make_incident(db_session, user.id)
+    await db_session.flush()
+    repo = AttachmentRepository(db_session)
+    att = await repo.create(AttachmentCreate(
+        incident_id=inc.id, filename="f.txt", mime_type="text/plain",
+        size_bytes=10, blob_ref="/tmp/f.txt", uploaded_by=user.id,
+    ))
+    await db_session.flush()
+    deleted = await repo.delete(att.id)
+    assert deleted is True
+    assert await repo.get_by_id(att.id) is None
+
+
+async def test_dashboard_summary(db_session):
+    user = await UserRepository(db_session).create(UserCreate(email="u6@t.com", name="U6", role="agent"))
+    await db_session.flush()
+    await _make_incident(db_session, user.id)
+    await db_session.flush()
+    summary = await IncidentRepository(db_session).get_dashboard_summary(user.id)
+    assert "my_open" in summary
+    assert "all_open" in summary
+    assert "unassigned" in summary
+    assert "breached" in summary
+    assert "by_state" in summary
+    assert "by_priority" in summary
+    assert summary["all_open"] >= 1
