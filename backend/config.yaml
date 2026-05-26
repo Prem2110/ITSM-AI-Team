@@ -1,0 +1,51 @@
+# ITSM configuration — edit to customise for each customer deployment
+company_name: "Acme Corporation"
+number_prefix: "INC"
+
+priorities:
+  - name: Critical
+    color: red
+    sla_hours: 4
+  - name: High
+    color: orange
+    sla_hours: 8
+  - name: Medium
+    color: yellow
+    sla_hours: 24
+  - name: Low
+    color: green
+    sla_hours: 72
+
+categories:
+  - Network
+  - Hardware
+  - Software
+  - Account Access
+  - SAP Integration
+
+states:
+  - new
+  - assigned
+  - in_progress
+  - on_hold
+  - resolved
+  - closed
+
+state_transitions:
+  new:
+    - assigned
+  assigned:
+    - in_progress
+    - on_hold
+    - new
+  in_progress:
+    - on_hold
+    - resolved
+    - assigned
+  on_hold:
+    - in_progress
+    - assigned
+  resolved:
+    - closed
+    - in_progress
+  closed: []
