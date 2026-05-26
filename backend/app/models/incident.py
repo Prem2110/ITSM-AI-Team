@@ -2,7 +2,7 @@ from __future__ import annotations
 import uuid
 from datetime import datetime
 from sqlalchemy import String, Boolean, DateTime, Text, Integer, ForeignKey
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 from ..db import Base
 from ..utils import utcnow
 
@@ -28,3 +28,10 @@ class Incident(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow, nullable=False)
     resolved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     closed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    events: Mapped[list["IncidentEvent"]] = relationship(
+        "IncidentEvent", foreign_keys="[IncidentEvent.incident_id]", lazy="raise"
+    )
+    attachments: Mapped[list["Attachment"]] = relationship(
+        "Attachment", foreign_keys="[Attachment.incident_id]", lazy="raise"
+    )
