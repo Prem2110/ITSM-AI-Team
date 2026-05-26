@@ -50,7 +50,7 @@ export function IncidentTable({ items, priorities, sort, order, onSort, isLoadin
       {isLoading && (
         <div style={{
           position: 'absolute', top: 0, left: 0, right: 0, height: 2, zIndex: 10,
-          background: 'linear-gradient(90deg, #e2e8f0 0%, #3b82f6 50%, #e2e8f0 100%)',
+          background: 'linear-gradient(90deg, var(--border-color) 0%, #3b82f6 50%, var(--border-color) 100%)',
           backgroundSize: '200% 100%',
           animation: 'shimmer 1.2s infinite',
         }} />
@@ -72,7 +72,7 @@ export function IncidentTable({ items, priorities, sort, order, onSort, isLoadin
 
         {/* Header */}
         <thead>
-          <tr style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0', height: 32 }}>
+          <tr style={{ background: 'var(--bg-secondary)', borderBottom: '1px solid var(--border-color)', height: 32 }}>
             {COL_HEADERS.map(col => (
               <th
                 key={col.key}
@@ -108,7 +108,7 @@ export function IncidentTable({ items, priorities, sort, order, onSort, isLoadin
         <tbody>
           {items.length === 0 && !isLoading && (
             <tr>
-              <td colSpan={COL_HEADERS.length} style={{ padding: '24px 12px', textAlign: 'center', color: '#94a3b8', fontSize: 12 }}>
+              <td colSpan={COL_HEADERS.length} style={{ padding: '24px 12px', textAlign: 'center', color: 'var(--text-subtle)', fontSize: 12 }}>
                 No incidents match these filters.
               </td>
             </tr>
@@ -119,7 +119,7 @@ export function IncidentTable({ items, priorities, sort, order, onSort, isLoadin
               onClick={() => navigate(`/incidents/${inc.id}`)}
               style={{
                 height: 32,
-                borderBottom: '1px solid #f1f5f9',
+                borderBottom: '1px solid var(--border-subtle)',
                 cursor: 'pointer',
               }}
               className="hover:bg-surface-50 group/row"
@@ -137,7 +137,7 @@ export function IncidentTable({ items, priorities, sort, order, onSort, isLoadin
               </td>
 
               {/* Number */}
-              <td className="px-2 truncate" style={{ fontFamily: 'ui-monospace, monospace', fontSize: 12, color: '#475569', fontWeight: 500 }}>
+              <td className="px-2 truncate" style={{ fontFamily: 'ui-monospace, monospace', fontSize: 12, color: 'var(--text-secondary)', fontWeight: 500 }}>
                 {inc.number}
               </td>
 
@@ -152,7 +152,7 @@ export function IncidentTable({ items, priorities, sort, order, onSort, isLoadin
               </td>
 
               {/* Title */}
-              <td className="px-2" style={{ color: '#1e293b', overflow: 'hidden' }}>
+              <td className="px-2" style={{ color: 'var(--text-primary)', overflow: 'hidden' }}>
                 <span style={{ display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                   {inc.sla_breached && (
                     <span style={{ color: '#b91c1c', fontWeight: 700, marginRight: 4, fontSize: 11 }}>!</span>
@@ -162,17 +162,17 @@ export function IncidentTable({ items, priorities, sort, order, onSort, isLoadin
               </td>
 
               {/* Category */}
-              <td className="px-2 truncate" style={{ color: '#475569', fontSize: 12 }}>
+              <td className="px-2 truncate" style={{ color: 'var(--text-secondary)', fontSize: 12 }}>
                 {inc.category}
               </td>
 
               {/* Assignee */}
-              <td className="px-2 truncate" style={{ color: inc.assignee_name ? '#475569' : '#94a3b8', fontSize: 12 }}>
+              <td className="px-2 truncate" style={{ color: inc.assignee_name ? 'var(--text-secondary)' : 'var(--text-subtle)', fontSize: 12 }}>
                 {inc.assignee_name ?? '—'}
               </td>
 
               {/* Updated */}
-              <td className="px-2" style={{ color: '#94a3b8', fontSize: 11, textAlign: 'right', whiteSpace: 'nowrap' }}>
+              <td className="px-2" style={{ color: 'var(--text-subtle)', fontSize: 11, textAlign: 'right', whiteSpace: 'nowrap' }}>
                 {relativeTime(inc.updated_at)}
               </td>
             </tr>

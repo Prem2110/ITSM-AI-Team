@@ -6,6 +6,7 @@ import Incidents from '@/pages/Incidents'
 import IncidentNew from '@/pages/IncidentNew'
 import IncidentDetail from '@/pages/IncidentDetail'
 import Dashboard from '@/pages/Dashboard'
+import Settings from '@/pages/Settings'
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
   if (!isAuthenticated()) {
@@ -32,6 +33,7 @@ export const router = createBrowserRouter([
       { path: 'incidents/new', element: <IncidentNew /> },
       { path: 'incidents/:id', element: <IncidentDetail /> },
       { path: 'dashboard', element: <Dashboard /> },
+      { path: 'settings', element: <Settings /> },
     ],
   },
   {

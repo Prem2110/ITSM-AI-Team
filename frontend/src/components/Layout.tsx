@@ -1,5 +1,6 @@
 import { Link, Outlet, useLocation } from 'react-router-dom'
 import { useState } from 'react'
+import { Settings } from 'lucide-react'
 import { clearFakeUser, getFakeUser } from '@/api/auth'
 import { useNavigate } from 'react-router-dom'
 
@@ -86,6 +87,14 @@ export default function Layout() {
         </Link>
         <div className="flex items-center gap-3">
           <span className="text-xs text-surface-500">{email}</span>
+          <Link
+            to="/settings"
+            className="flex items-center justify-center text-surface-500 hover:text-surface-700 hover:bg-surface-50 border border-surface-200 transition-colors"
+            style={{ width: 26, height: 26, borderRadius: 2 }}
+            title="Settings"
+          >
+            <Settings size={13} />
+          </Link>
           <button
             onClick={handleLogout}
             className="text-xs text-surface-500 hover:text-surface-700 border border-surface-200 px-2 py-0.5 hover:bg-surface-50 transition-colors"
@@ -113,7 +122,7 @@ export default function Layout() {
             />
           </div>
 
-          <nav className="flex-1 py-1">
+          <nav className="flex-1 py-1 flex flex-col justify-between">
             {filteredSections.map(section => (
               <div key={section.header} className="mb-2">
                 <div className="px-3 py-1 text-2xs font-semibold text-surface-400 uppercase tracking-widest">
@@ -138,6 +147,21 @@ export default function Layout() {
                 })}
               </div>
             ))}
+            {/* Bottom: Settings */}
+            <div className="border-t border-surface-200 pt-1 mt-2">
+              <Link
+                to="/settings"
+                className={`flex items-center gap-2 px-3 text-xs transition-colors ${
+                  location.pathname === '/settings'
+                    ? 'bg-surface-200 text-surface-800 font-medium'
+                    : 'text-surface-700 hover:bg-surface-100'
+                }`}
+                style={{ height: 28, lineHeight: '28px', textDecoration: 'none' }}
+              >
+                <Settings size={12} className="flex-none" />
+                Settings
+              </Link>
+            </div>
           </nav>
         </aside>
 

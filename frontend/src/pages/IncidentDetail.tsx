@@ -79,8 +79,8 @@ function EventItem({ event, userMap }: { event: IncidentEvent; userMap: Record<s
       <div
         className="p-3"
         style={{
-          background: isWork ? 'rgba(245,158,11,0.05)' : '#f8fafc',
-          border: `1px solid ${isWork ? 'rgba(245,158,11,0.22)' : '#e2e8f0'}`,
+          background: isWork ? 'rgba(245,158,11,0.05)' : 'var(--bg-secondary)',
+          border: `1px solid ${isWork ? 'rgba(245,158,11,0.22)' : 'var(--border-color)'}`,
           borderLeft: `3px solid ${isWork ? '#f59e0b' : '#94a3b8'}`,
           borderRadius: 2,
         }}
