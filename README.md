@@ -6,7 +6,7 @@ A single-tenant IT Service Management tool — a simplified ServiceNow-like tick
 
 - **Backend:** Python 3.11+, FastAPI, SQLAlchemy 2.0 (async), Alembic
 - **Database:** SAP HANA (production) / SQLite (local dev)
-- **Frontend:** React 18, Vite, TypeScript, Tailwind CSS, shadcn/ui
+- **Frontend:** React 18, Vite, TypeScript, Tailwind CSS
 - **Auth:** SAP XSUAA (production) / fake-auth stub (local dev)
 - **Deployment:** SAP BTP Cloud Foundry
 

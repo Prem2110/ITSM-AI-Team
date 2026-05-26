@@ -55,6 +55,7 @@ class EnvSettings(BaseSettings):
     xsuaa_client_id: str = ""
     xsuaa_client_secret: str = ""
     xsuaa_xsappname: str = ""
+    cors_origins: list[str] = ["*"]
 
 
 def _load_yaml_config() -> AppConfig:

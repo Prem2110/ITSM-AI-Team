@@ -1,6 +1,7 @@
 from __future__ import annotations
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from .config import env_settings
 
 app = FastAPI(
     title="ITSM API",
@@ -10,7 +11,7 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=env_settings.cors_origins,
     allow_methods=["*"],
     allow_headers=["*"],
 )
