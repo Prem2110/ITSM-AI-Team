@@ -121,6 +121,7 @@ class IncidentService:
         except ValueError as exc:
             raise HTTPException(status_code=422, detail=str(exc)) from exc
 
+        from_state = incident.state
         now = utcnow()
         update_fields: dict = {"state": req.to_state, "updated_at": now}
         if req.resolution_code:
@@ -140,7 +141,7 @@ class IncidentService:
             event_type="state_change",
             body=None,
             event_metadata={
-                "from_state": incident.state,
+                "from_state": from_state,
                 "to_state": req.to_state,
                 "resolution_code": merged.get("resolution_code"),
             },

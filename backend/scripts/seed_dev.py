@@ -17,7 +17,13 @@ from app.utils import utcnow
 
 
 async def seed() -> None:
+    from sqlalchemy import select
     async with AsyncSessionLocal() as session:
+        existing = await session.scalar(select(User).where(User.email == "admin@acme.com"))
+        if existing:
+            print("Seed data already present — skipping.")
+            return
+
         async with session.begin():
             # --- Users ---
             admin = User(

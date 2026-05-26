@@ -4,6 +4,7 @@ from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 from ..models.incident_event import IncidentEvent
 from ..schemas.incident_event import IncidentEventCreate
+from ..utils import utcnow
 
 
 class IncidentEventRepository:
@@ -18,6 +19,7 @@ class IncidentEventRepository:
             event_type=data.event_type,
             body=data.body,
             event_metadata=data.event_metadata,
+            created_at=utcnow(),
         )
         self.session.add(event)
         return event
