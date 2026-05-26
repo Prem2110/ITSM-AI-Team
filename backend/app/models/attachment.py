@@ -4,10 +4,7 @@ from datetime import datetime
 from sqlalchemy import String, DateTime, Integer, ForeignKey
 from sqlalchemy.orm import Mapped, mapped_column
 from ..db import Base
-
-
-def _utcnow() -> datetime:
-    return datetime.utcnow()
+from ..utils import utcnow
 
 
 class Attachment(Base):
@@ -19,5 +16,5 @@ class Attachment(Base):
     mime_type: Mapped[str] = mapped_column(String(100), nullable=False)
     size_bytes: Mapped[int] = mapped_column(Integer, nullable=False)
     blob_ref: Mapped[str] = mapped_column(String(1000), nullable=False)
-    uploaded_by: Mapped[str] = mapped_column(String(36), ForeignKey("users.id"), nullable=False)
-    uploaded_at: Mapped[datetime] = mapped_column(DateTime, default=_utcnow, nullable=False)
+    uploaded_by: Mapped[str] = mapped_column(String(36), ForeignKey("users.id"), nullable=False, index=True)
+    uploaded_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, nullable=False)

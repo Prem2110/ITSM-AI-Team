@@ -62,8 +62,9 @@ async def test_incident_event_round_trip(db_session):
         id=str(uuid.uuid4()),
         incident_id=incident.id,
         actor_id=user.id,
-        event_type="comment",
-        body="First comment",
+        event_type="state_change",
+        body="Assigned to agent",
+        event_metadata={"old_state": "new", "new_state": "assigned"},
     )
     db_session.add(event)
     await db_session.flush()
@@ -71,8 +72,8 @@ async def test_incident_event_round_trip(db_session):
         select(IncidentEvent).where(IncidentEvent.incident_id == incident.id)
     )
     fetched = result.scalar_one()
-    assert fetched.body == "First comment"
-    assert fetched.event_metadata is None
+    assert fetched.body == "Assigned to agent"
+    assert fetched.event_metadata == {"old_state": "new", "new_state": "assigned"}
 
 
 async def test_attachment_round_trip(db_session):
