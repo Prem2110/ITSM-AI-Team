@@ -1,10 +1,14 @@
 from __future__ import annotations
 import uuid
 from datetime import datetime
+from typing import TYPE_CHECKING
 from sqlalchemy import String, Boolean, DateTime, Text, Integer, ForeignKey
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from ..db import Base
 from ..utils import utcnow
+
+if TYPE_CHECKING:
+    from .user import User
 
 
 class Incident(Base):
@@ -29,6 +33,9 @@ class Incident(Base):
     resolved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     closed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
+    assignee: Mapped["User | None"] = relationship(
+        "User", foreign_keys=[assignee_id], lazy="raise"
+    )
     events: Mapped[list["IncidentEvent"]] = relationship(
         "IncidentEvent", foreign_keys="[IncidentEvent.incident_id]", lazy="raise"
     )

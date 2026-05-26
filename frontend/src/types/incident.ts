@@ -16,6 +16,7 @@ export interface IncidentListItem {
   priority: 1 | 2 | 3 | 4
   category: string
   assignee_id: string | null
+  assignee_name: string | null
   sla_breached: boolean
   created_at: string
   updated_at: string

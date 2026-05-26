@@ -16,8 +16,8 @@ export function Pagination({ page, total, pageSize, onPage }: Props) {
 
   return (
     <div
-      className="flex-none flex items-center justify-end gap-2 px-3 border-t border-surface-200 bg-white"
-      style={{ height: 32 }}
+      className="flex-none flex items-center justify-end gap-2 border-t border-surface-200 bg-white"
+      style={{ height: 32, paddingLeft: 16, paddingRight: 16 }}
     >
       <span className="text-xs text-surface-500">
         {start}–{end} of {total.toLocaleString()}

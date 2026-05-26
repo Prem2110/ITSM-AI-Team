@@ -19,12 +19,11 @@ from app.utils import utcnow
 async def seed() -> None:
     from sqlalchemy import select
     async with AsyncSessionLocal() as session:
-        existing = await session.scalar(select(User).where(User.email == "admin@acme.com"))
-        if existing:
-            print("Seed data already present — skipping.")
-            return
-
         async with session.begin():
+            existing = await session.scalar(select(User).where(User.email == "admin@acme.com"))
+            if existing:
+                print("Seed data already present — skipping.")
+                return
             # --- Users ---
             admin = User(
                 id=str(uuid.uuid4()),
@@ -125,13 +124,13 @@ async def seed() -> None:
             # inc1 events
             await add_event(inc1, requester, "comment", "Still not working. Tried restarting my machine.")
             await add_event(inc1, agent, "state_change", "Assigned to myself, will investigate.",
-                            {"old_state": "new", "new_state": "assigned"})
+                            {"from_state": "new", "to_state": "assigned"})
             await add_event(inc1, agent, "work_note", "Checked firewall rules. No recent changes. Escalating to network team.")
 
             # inc2 events
             await add_event(inc2, requester, "comment", "It also crashes when I try to open it in safe mode.")
             await add_event(inc2, agent, "state_change", "Started investigation.",
-                            {"old_state": "assigned", "new_state": "in_progress"})
+                            {"from_state": "assigned", "to_state": "in_progress"})
             await add_event(inc2, agent, "work_note", "Office repair tool running. Will update when complete.")
 
             # inc3 events
@@ -139,14 +138,14 @@ async def seed() -> None:
 
             # inc4 events
             await add_event(inc4, agent, "state_change", "Resolved — keyboard replaced.",
-                            {"old_state": "in_progress", "new_state": "resolved"})
+                            {"from_state": "in_progress", "to_state": "resolved"})
             await add_event(inc4, requester, "comment", "Confirmed working, thank you!")
 
             # inc5 events
             await add_event(inc5, agent, "state_change", "Resolved.",
-                            {"old_state": "in_progress", "new_state": "resolved"})
+                            {"from_state": "in_progress", "to_state": "resolved"})
             await add_event(inc5, admin, "state_change", "Closed after 24-hour verification period.",
-                            {"old_state": "resolved", "new_state": "closed"})
+                            {"from_state": "resolved", "to_state": "closed"})
 
             # --- One Attachment ---
             att = Attachment(

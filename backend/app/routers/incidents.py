@@ -44,7 +44,22 @@ async def list_incidents(
     for inc in items:
         await svc.check_and_update_sla_breach(inc)
     return IncidentListResponse(
-        items=[IncidentListItem.model_validate(i) for i in items],
+        items=[
+            IncidentListItem(
+                id=i.id,
+                number=i.number,
+                title=i.title,
+                state=i.state,
+                priority=i.priority,
+                category=i.category,
+                assignee_id=i.assignee_id,
+                assignee_name=i.assignee.name if i.assignee else None,
+                sla_breached=i.sla_breached,
+                created_at=i.created_at,
+                updated_at=i.updated_at,
+            )
+            for i in items
+        ],
         total=total,
         page=page,
         page_size=page_size,

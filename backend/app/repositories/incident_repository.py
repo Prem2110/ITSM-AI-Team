@@ -91,7 +91,7 @@ class IncidentRepository:
         limit: int = 50,
         offset: int = 0,
     ) -> list[Incident]:
-        query = select(Incident)
+        query = select(Incident).options(selectinload(Incident.assignee))
         if state is not None:
             query = query.where(Incident.state == state)
         if priority is not None:

@@ -140,8 +140,6 @@ class IncidentResponse(BaseModel):
 
 
 class IncidentListItem(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-
     id: str
     number: str
     title: str
@@ -149,6 +147,7 @@ class IncidentListItem(BaseModel):
     priority: int
     category: str
     assignee_id: str | None
+    assignee_name: str | None
     sla_breached: bool
     created_at: datetime
     updated_at: datetime

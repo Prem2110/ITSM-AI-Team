@@ -104,8 +104,8 @@ export function FilterBar({ filterState, searchInputRef }: Props) {
 
   return (
     <div
-      className="flex-none flex items-center gap-2 px-3 border-b border-surface-200 bg-white"
-      style={{ height: 36, minHeight: 36 }}
+      className="flex-none flex items-center gap-2 border-b border-surface-200 bg-white"
+      style={{ height: 36, minHeight: 36, paddingLeft: 16, paddingRight: 16 }}
     >
       {/* Active filter pills */}
       <div className="flex items-center gap-1.5 flex-1 overflow-x-auto min-w-0" style={{ flexWrap: 'nowrap' }}>

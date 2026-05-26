@@ -167,8 +167,8 @@ export function IncidentTable({ items, priorities, sort, order, onSort, isLoadin
               </td>
 
               {/* Assignee */}
-              <td className="px-2 truncate" style={{ color: inc.assignee_id ? '#475569' : '#94a3b8', fontSize: 12 }}>
-                {inc.assignee_id ? inc.assignee_id.substring(0, 8) + '…' : '—'}
+              <td className="px-2 truncate" style={{ color: inc.assignee_name ? '#475569' : '#94a3b8', fontSize: 12 }}>
+                {inc.assignee_name ?? '—'}
               </td>
 
               {/* Updated */}
