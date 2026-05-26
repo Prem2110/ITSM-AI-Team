@@ -2,6 +2,7 @@ from __future__ import annotations
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from .config import env_settings
+from .routers import session
 
 app = FastAPI(
     title="ITSM API",
@@ -16,8 +17,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Routers will be included here as they are built
-# e.g. app.include_router(incidents_router, prefix="/api/v1")
+app.include_router(session.router)
 
 
 @app.get("/health")
