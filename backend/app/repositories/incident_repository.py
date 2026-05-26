@@ -1,6 +1,6 @@
 from __future__ import annotations
 import uuid
-from datetime import timedelta
+from datetime import datetime, timedelta
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -11,7 +11,14 @@ from ..services.numbering import next_incident_number
 from ..utils import utcnow
 
 
-def _sla_due(priority: int, created_at) -> object:
+_INCIDENT_UPDATABLE = frozenset({
+    "title", "description", "priority", "category", "assignee_id",
+    "state", "resolution_code", "resolution_notes",
+    "resolved_at", "closed_at", "sla_breached", "updated_at",
+})
+
+
+def _sla_due(priority: int, created_at: datetime) -> datetime:
     hours = app_config.priorities[priority - 1].sla_hours
     return created_at + timedelta(hours=hours)
 
@@ -61,6 +68,14 @@ class IncidentRepository:
         )
         return result.scalar_one_or_none()
 
+    async def get_with_attachments(self, incident_id: str) -> Incident | None:
+        result = await self.session.execute(
+            select(Incident)
+            .options(selectinload(Incident.attachments))
+            .where(Incident.id == incident_id)
+        )
+        return result.scalar_one_or_none()
+
     async def list(
         self,
         state: str | None = None,
@@ -88,6 +103,8 @@ class IncidentRepository:
         if incident is None:
             return None
         for k, v in fields.items():
+            if k not in _INCIDENT_UPDATABLE:
+                raise ValueError(f"Field '{k}' is not updatable")
             setattr(incident, k, v)
         incident.updated_at = utcnow()
         return incident

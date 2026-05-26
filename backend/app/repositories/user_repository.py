@@ -6,6 +6,9 @@ from ..models.user import User
 from ..schemas.user import UserCreate
 
 
+_USER_UPDATABLE = frozenset({"name", "role", "active"})
+
+
 class UserRepository:
     def __init__(self, session: AsyncSession) -> None:
         self.session = session
@@ -43,5 +46,7 @@ class UserRepository:
         if user is None:
             return None
         for k, v in fields.items():
+            if k not in _USER_UPDATABLE:
+                raise ValueError(f"Field '{k}' is not updatable")
             setattr(user, k, v)
         return user
