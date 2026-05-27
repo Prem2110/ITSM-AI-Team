@@ -1,35 +1,50 @@
 # ITSM — IT Service Management
 
+> **New here?** Read the [Client Onboarding Guide](CLIENTONBOARDING.md) for step-by-step setup, database table reference, table prefix guide, and troubleshooting.
+
 A single-tenant IT Service Management tool — a simplified ServiceNow-like ticketing system. Each customer gets their own deployment on SAP BTP Cloud Foundry.
+
+---
 
 ## Tech Stack
 
-- **Backend:** Python 3.11+, FastAPI, SQLAlchemy 2.0 (async), Alembic
-- **Database:** SAP HANA (production) / SQLite (local dev)
-- **Frontend:** React 18, Vite, TypeScript, Tailwind CSS
-- **Auth:** SAP XSUAA (production) / fake-auth stub (local dev)
-- **Deployment:** SAP BTP Cloud Foundry
+| Layer | Technology |
+|-------|-----------|
+| Backend API | Python 3.11+, FastAPI, SQLAlchemy 2.0 (async), Alembic |
+| Database | SAP HANA (production) / SQLite (local dev) |
+| Frontend | React 18, Vite, TypeScript, Tailwind CSS, React Query |
+| Charts | Recharts |
+| Auth | SAP XSUAA (production) / fake-auth stub (local dev) |
+| Deployment | SAP BTP Cloud Foundry |
+
+---
 
 ## Prerequisites
 
 - Python 3.11+
 - Node.js 18+
-- [uv](https://docs.astral.sh/uv/) (Python package manager)
+- [uv](https://docs.astral.sh/uv/) — `pip install uv`
 
-## Running Locally
+---
 
-### Backend
+## Quick Start (Local Dev)
+
+### 1. Backend
 
 ```bash
 cd backend
-cp .env.example .env          # edit AUTH_MODE and DATABASE_URL if needed
+cp .env.example .env          # edit DATABASE_URL / AUTH_MODE if needed
 uv sync
+uv run alembic upgrade head   # creates dev.db
+uv run python scripts/seed_dev.py   # optional: load sample data
 uv run uvicorn app.main:app --reload --port 8000
 ```
 
-The API is now available at http://localhost:8000. Health check: http://localhost:8000/health
+- API: `http://localhost:8000`
+- Swagger docs: `http://localhost:8000/docs`
+- Health check: `http://localhost:8000/health`
 
-### Frontend
+### 2. Frontend
 
 ```bash
 cd frontend
@@ -37,122 +52,234 @@ npm install
 npm run dev
 ```
 
-The UI is now available at http://localhost:5173. API requests to `/api/*` are proxied to the backend.
+- UI: `http://localhost:5173`
+- All `/api/*` requests are proxied to the backend.
 
-## Running against HANA
+### 3. First login
 
-### Setup
+Open `http://localhost:5173`. The app redirects to `/setup` on a fresh database. Complete the wizard (company name + timezone), then log in with any email from the seeded users:
 
-1. Create `backend/.env.hana` (gitignored):
-   ```
-   HANA_ADDRESS=<your-host>.hana.cloud.sap
-   HANA_PORT=443
-   HANA_USER=<user>
-   HANA_PASSWORD=<password>
-   HANA_SCHEMA=<schema>
-   HANA_ENCRYPT=true
-   HANA_SSL_VALIDATE=false
-   TABLE_PREFIX=ITSM_PREM_  # or any unique prefix for your deployment
-   ```
+| Email | Role |
+|-------|------|
+| `admin@acme.com` | Admin |
+| `sarah.chen@acme.com` | Agent |
+| `james.park@acme.com` | Requester |
 
-2. Install `hdbcli` (SAP HANA Python driver — requires SAP credentials):
-   ```bash
-   cd backend
-   uv add hdbcli
-   ```
-   `sqlalchemy-hana` is already in `pyproject.toml` and installed by `uv sync`.
+---
 
-3. Check for table-name collisions in the shared schema:
-   ```bash
-   cd backend
-   uv run python scripts/inspect_hana.py
-   ```
-   If no collisions are reported, proceed.
-
-### Running migrations against HANA
-
-```bash
-cd backend
-uv run alembic upgrade head
-```
-
-The URL resolver detects `HANA_ADDRESS` in `.env.hana` and routes to HANA automatically.
-
-### Running tests against HANA
-
-```bash
-cd backend
-HANA_TEST=1 uv run pytest -v
-```
-
-This:
-- Creates `ITSM_TEST_*` tables in the HANA schema at session start
-- Runs all 102 tests against the real HANA engine
-- Truncates tables between tests for isolation
-- Drops `ITSM_TEST_*` tables at session end
-
-Expected: 102 tests pass. Any failures indicate a HANA dialect issue — see `backend/HANA_NOTES.md`.
-
-### Expected output (migration)
+## Project Structure
 
 ```
-INFO  [alembic.runtime.migration] Running upgrade  -> 1662b6fded47, initial
+ITSM/
+├── backend/
+│   ├── app/
+│   │   ├── auth/           Fake dev auth + SAP XSUAA JWT validation
+│   │   ├── models/         SQLAlchemy ORM models (users, incidents, events, attachments, app_settings)
+│   │   ├── repositories/   SQL data access (one file per model)
+│   │   ├── services/       Business logic (IncidentService, numbering)
+│   │   ├── routers/        FastAPI route handlers
+│   │   ├── schemas/        Pydantic request/response models
+│   │   ├── config.py       Config loader (YAML + env)
+│   │   ├── db.py           Async SQLAlchemy engine + session
+│   │   ├── main.py         FastAPI app, middleware, router registration
+│   │   └── state_machine.py  Transition validator
+│   ├── alembic/            Migration scripts
+│   ├── scripts/            seed_dev.py, inspect_hana.py, cleanup_hana.py
+│   ├── config.yaml         Per-customer settings (priorities, categories, states)
+│   └── .env.example        Environment variable template
+└── frontend/
+    └── src/
+        ├── api/            Axios client + per-domain fetch helpers
+        ├── components/     Layout, badges, skeletons, route guards, toolbar
+        ├── contexts/       SettingsContext (theme, font size, dark mode)
+        ├── hooks/          React Query hooks (useIncidents, useMe, useDashboard, …)
+        ├── pages/          Login, Setup, Dashboard, Incidents, IncidentDetail, Settings
+        └── types/          TypeScript interfaces
 ```
 
-Tables created: `ITSM_PREM_users`, `ITSM_PREM_incidents`, `ITSM_PREM_incident_events`, `ITSM_PREM_attachments`
-Sequence created: `ITSM_PREM_INC_SEQ`
+---
+
+## Architecture
+
+### Backend layers
+
+```
+HTTP request
+  → router       (auth check via require_scope(), serialisation)
+  → service      (business logic: create, transition, SLA calculation)
+  → repository   (async SQLAlchemy queries)
+  → model        (ORM class, maps to DB table)
+```
+
+### Configuration — two layers
+
+| File | Contents | When loaded |
+|------|----------|------------|
+| `backend/config.yaml` | Per-customer settings: company name, number prefix, priorities (with SLA hours), categories, states, state_transitions | Once at import time → `app_config` |
+| `backend/.env` | Runtime env: `DATABASE_URL`, `AUTH_MODE`, XSUAA vars, `CORS_ORIGINS`, `TABLE_PREFIX` | Pydantic Settings → `env_settings` |
+
+### State machine
+
+Incident state transitions are driven entirely by `config.yaml → state_transitions`. The `state_machine.validate_transition(from, to, payload)` function raises `ValueError` for:
+- Any transition not listed in the config map.
+- A transition to `resolved` without both `resolution_code` and `resolution_notes`.
+
+### SLA tracking
+
+When an incident is created, `sla_resolution_due` is calculated as `now + priority.sla_hours`. A background check or per-request flag sets `sla_breached = true` if the deadline has passed and the incident is not yet resolved.
+
+---
+
+## API Endpoints
+
+| Method | Path | Auth scope | Description |
+|--------|------|-----------|-------------|
+| GET | `/health` | None | Health check |
+| GET | `/api/session` | TicketRead | Current user info |
+| GET | `/api/config` | TicketRead | Priorities, categories, states from config.yaml |
+| POST | `/api/setup` | None | Complete setup wizard (creates app_settings row) |
+| GET | `/api/incidents` | TicketRead | List incidents (filterable, paginated) |
+| POST | `/api/incidents` | TicketWrite | Create new incident |
+| GET | `/api/incidents/{id}` | TicketRead | Get single incident |
+| PATCH | `/api/incidents/{id}` | TicketWrite | Update incident fields |
+| POST | `/api/incidents/{id}/transition` | Agent | Transition incident state |
+| GET | `/api/incidents/{id}/events` | TicketRead | Get audit trail events |
+| POST | `/api/incidents/{id}/events` | TicketWrite | Add comment / work note |
+| GET | `/api/users` | Agent | List all users (for assignment dropdown) |
+| GET | `/api/dashboard` | TicketRead | Stats, charts, SLA compliance data |
+| POST | `/api/attachments` | TicketWrite | Upload file attachment |
+| GET | `/api/attachments/{id}` | TicketRead | Download attachment |
+
+---
+
+## Frontend Routes
+
+| Path | Page | Description |
+|------|------|-------------|
+| `/setup` | Setup wizard | First-time configuration |
+| `/login` | Login | Fake-auth email picker |
+| `/incidents` | Incident list | Filterable, paginated table |
+| `/incidents/new` | New incident form | Create a ticket |
+| `/incidents/:id` | Incident detail | View, edit, transition, comment |
+| `/dashboard` | Dashboard | Stats cards + charts |
+| `/settings` | App settings | Manage users, resolution codes |
+| `/settings/appearance` | Appearance | Theme, font, density |
+
+---
+
+## Database Tables
+
+See [CLIENTONBOARDING.md — Section 6](CLIENTONBOARDING.md#6-database-tables--schema-reference) for full column-level documentation.
+
+| Table | Purpose |
+|-------|---------|
+| `users` | All users (admin / agent / requester) |
+| `incidents` | Tickets — one row per incident |
+| `incident_events` | Append-only audit trail (comments, state changes, work notes) |
+| `attachments` | File attachment metadata and blob references |
+| `app_settings` | Singleton row set by the setup wizard |
+
+HANA deployments also create a sequence `INC_SEQ` (or `{PREFIX}INC_SEQ`) for ticket numbering.
 
 ---
 
 ## Table Prefix
 
-The `TABLE_PREFIX` environment variable prepends a string to every table name, index, constraint name, and HANA sequence used by the backend. This is used to avoid naming collisions when multiple ITSM deployments share a single HANA schema (common in shared-schema dev environments).
+The `TABLE_PREFIX` environment variable prepends a string to every table name. Used when multiple ITSM deployments share a single HANA schema.
 
-| Scenario | `TABLE_PREFIX` | Tables created |
-|----------|----------------|----------------|
-| Production (dedicated HDI Container) | *(empty)* | `users`, `incidents`, … |
-| Shared dev schema — personal sandbox | `ITSM_PREM_` | `ITSM_PREM_users`, `ITSM_PREM_incidents`, … |
-| Shared dev schema — team dev | `ITSM_DEV_` | `ITSM_DEV_users`, `ITSM_DEV_incidents`, … |
+| Scenario | `TABLE_PREFIX` | Tables |
+|----------|----------------|--------|
+| Production (dedicated HDI container) | *(empty)* | `users`, `incidents`, … |
+| Shared dev — personal | `ITSM_PREM_` | `ITSM_PREM_users`, … |
+| Shared dev — team QA | `ITSM_QA_` | `ITSM_QA_users`, … |
 
-### Changing the prefix
+See [CLIENTONBOARDING.md — Section 7](CLIENTONBOARDING.md#7-table-prefix-multi-tenant-deployments) for changing the prefix.
 
-The prefix is baked into the migration at generation time. To use a new prefix:
+---
 
-1. Drop all existing tables (or use a fresh schema).
-2. Delete all files in `backend/alembic/versions/`.
-3. Set `TABLE_PREFIX=<new_prefix>` in your environment.
-4. Regenerate: `uv run alembic revision --autogenerate -m "initial"`
-5. Patch the HANA sequence block into the generated migration (see `docs/superpowers/plans/2026-05-27-table-prefix.md` Task 6, Step 4).
-6. Apply: `uv run alembic upgrade head`
+## Configuration Reference (`backend/config.yaml`)
 
-**Do not** change the prefix on a running deployment — this would leave the old tables orphaned and create new empty ones.
+```yaml
+company_name: "Acme Corporation"
+number_prefix: "INC"              # ticket numbers: INC-001, INC-002, …
 
-### Tests
+priorities:                       # ordered 1 (highest) → 4 (lowest)
+  - name: Critical  color: red     sla_hours: 4
+  - name: High      color: orange  sla_hours: 8
+  - name: Medium    color: yellow  sla_hours: 24
+  - name: Low       color: green   sla_hours: 72
 
-Tests always run with `TABLE_PREFIX=""` (the default). Ensure `backend/.env` does not set `TABLE_PREFIX` to a non-empty value — pydantic-settings reads `.env` at import time, and a non-empty prefix in `.env` will cause all tests to fail with "no such table" errors.
+categories:
+  - Network
+  - Hardware
+  - Software
+  - Account Access
+  - SAP Integration
 
-## Configuration
+states:
+  - new | assigned | in_progress | on_hold | resolved | closed
 
-Edit `backend/config.yaml` to customise per-customer settings:
+state_transitions:
+  new: [assigned]
+  assigned: [in_progress, on_hold, new]
+  in_progress: [on_hold, resolved, assigned]
+  on_hold: [in_progress, assigned]
+  resolved: [closed, in_progress]
+  closed: []
+```
 
-- **priorities** — names, colours, and SLA hours (Critical / High / Medium / Low)
-- **categories** — incident categories for your organisation
-- **states** and **state_transitions** — the incident state machine
-- **company_name** and **number_prefix** — branding
+---
 
 ## Auth Modes
 
-| Mode | Usage |
-|------|-------|
-| `AUTH_MODE=fake` | Local development — skips JWT validation, uses a hardcoded caller identity |
-| `AUTH_MODE=real` | Production on SAP BTP — validates XSUAA JWTs; requires XSUAA_* env vars |
+| `AUTH_MODE` | Usage | How it works |
+|-------------|-------|-------------|
+| `fake` | Local dev / QA | Frontend sends `X-Fake-User: <email>` header; backend looks up user by email and derives scopes from role |
+| `real` | SAP BTP production | Backend validates SAP XSUAA JWT; scopes come from token claims |
 
-Set `AUTH_MODE` in `backend/.env` (copy from `backend/.env.example`).
+---
 
-## Project Structure
+## Running against SAP HANA
 
+See [CLIENTONBOARDING.md — Section 8](CLIENTONBOARDING.md#8-sap-hana-production-setup) for full setup steps.
+
+```bash
+cd backend
+# create backend/.env.hana with HANA_ADDRESS, PORT, USER, PASSWORD, SCHEMA
+uv run python scripts/inspect_hana.py   # check for table collisions
+uv run alembic upgrade head             # create tables
 ```
-backend/          FastAPI app + SQLAlchemy models + business logic
-frontend/         React + Vite + TypeScript UI
-deploy/           SAP BTP deployment scripts (coming soon)
+
+---
+
+## Running Tests
+
+```bash
+cd backend
+uv run pytest                          # all tests (SQLite in-memory)
+uv run pytest tests/test_incidents.py -v   # single file
+HANA_TEST=1 uv run pytest -v           # against real HANA
+```
+
+```bash
+cd frontend
+npx tsc --noEmit                       # TypeScript type-check
+```
+
+---
+
+## Useful Commands
+
+```bash
+# Backend
+uv run alembic upgrade head                          # apply migrations
+uv run alembic revision --autogenerate -m "change"   # generate migration
+uv run python scripts/seed_dev.py                    # load sample data
+uv run python scripts/inspect_hana.py                # HANA collision check
+uv run python scripts/cleanup_hana.py                # HANA table cleanup
+
+# Frontend
+npm run dev        # dev server
+npm run build      # production build
+npx tsc --noEmit   # type-check
 ```
