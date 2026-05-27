@@ -1,12 +1,47 @@
 from __future__ import annotations
 import asyncio
 import dataclasses
+import sys
 import pytest
 import pytest_asyncio
 from httpx import AsyncClient, ASGITransport
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
 from app.db import Base, get_db
 import app.models  # noqa: F401 — registers all models with Base.metadata
+
+# ── Windows / hdbcli pre-initialization ───────────────────────────────────────
+# hdbcli on Windows uses OpenSSL for TLS connections. If the FIRST connect()
+# call happens while an asyncio event loop is already running in another thread
+# (which pytest_asyncio starts before the first test), the DLL crashes with an
+# access violation — a race in the OpenSSL/Winsock global init path.
+#
+# Fix: force hdbcli to initialize its DLL globals here, at conftest import time.
+# This runs during pytest's collection phase, before pytest_asyncio has created
+# any event loop threads. All subsequent connect() calls (including those from
+# asyncio thread-pool workers) are then safe because the globals are already set.
+from app.config import env_settings as _cfg
+if _cfg.hana_test:
+    try:
+        from hdbcli import dbapi as _hdbcli_init
+        _pre = _hdbcli_init.connect(
+            address=_cfg.hana_address,
+            port=_cfg.hana_port,
+            user=_cfg.hana_user,
+            password=_cfg.hana_password,
+            encrypt=_cfg.hana_encrypt,
+            sslValidateCertificate=_cfg.hana_ssl_validate,
+        )
+        _pre.close()
+        del _pre, _hdbcli_init
+    except Exception as _pre_err:
+        import warnings as _w
+        _w.warn(f"hdbcli pre-init failed — HANA tests may crash: {_pre_err}")
+        del _w, _pre_err
+
+if sys.platform == "win32":
+    asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
+
+# ─────────────────────────────────────────────────────────────────────────────
 
 
 @dataclasses.dataclass
@@ -48,43 +83,76 @@ def _get_hana_engine():
     return _HANA_TEST_ENGINE
 
 
-async def _create_hana_test_tables(engine) -> None:
-    await asyncio.to_thread(lambda: Base.metadata.create_all(engine))
-
-
-async def _drop_hana_test_tables(engine) -> None:
-    await asyncio.to_thread(lambda: Base.metadata.drop_all(engine))
-
-
-async def _truncate_hana_test_tables(engine) -> None:
+def _hana_existing_tables(engine) -> set:
+    """Return lowercase set of table names currently in the HANA schema."""
     from sqlalchemy import text as _text
-
-    def _do_truncate():
-        with engine.connect() as conn:
-            for tbl in reversed(Base.metadata.sorted_tables):
-                conn.execute(_text(f'DELETE FROM "{tbl.name}"'))
-            conn.commit()
-
-    await asyncio.to_thread(_do_truncate)
+    with engine.connect() as conn:
+        rows = conn.execute(_text(
+            "SELECT LOWER(TABLE_NAME) FROM SYS.TABLES WHERE SCHEMA_NAME = CURRENT_SCHEMA"
+        )).fetchall()
+    return {r[0] for r in rows}
 
 
-@pytest_asyncio.fixture(scope="session", autouse=True)
-async def _hana_session_setup():
-    """Create HANA test tables at session start, drop at session end.
+# Explicit FK-safe order for DML/DDL operations on HANA.
+# sorted_tables / reversed(sorted_tables) can mis-order when hdbcli FK names
+# use mixed-case prefixed strings; hardcoding avoids FK constraint violations.
+_HANA_BASE_TABLES = ["incident_events", "attachments", "incidents", "users"]  # children → parents
 
-    Only active when HANA_TEST=1; no-op otherwise.
-    """
-    from app.config import env_settings
-    if not env_settings.hana_test:
-        yield
+
+def _create_hana_test_tables(engine) -> None:
+    from app.config import tbl as _tbl
+    from sqlalchemy import text as _text
+    existing = _hana_existing_tables(engine)
+    # Create parents before children (reverse of delete order)
+    for base_name in reversed(_HANA_BASE_TABLES):
+        table_name = _tbl(base_name)
+        if table_name.lower() not in existing:
+            table = Base.metadata.tables[table_name]
+            table.create(engine)
+
+
+def _drop_hana_test_tables(engine) -> None:
+    from app.config import tbl as _tbl
+    from sqlalchemy import text as _text
+    existing = _hana_existing_tables(engine)
+    # Drop children before parents to avoid FK constraint violations
+    with engine.connect() as conn:
+        for base_name in _HANA_BASE_TABLES:
+            table_name = _tbl(base_name)
+            if table_name.lower() in existing:
+                conn.execute(_text(f'DROP TABLE "{table_name}"'))
+        conn.commit()
+
+
+def _truncate_hana_test_tables(engine) -> None:
+    from app.config import tbl as _tbl
+    from sqlalchemy import text as _text
+    # Delete children before parents to avoid FK constraint violations
+    with engine.connect() as conn:
+        for base_name in _HANA_BASE_TABLES:
+            conn.execute(_text(f'DELETE FROM "{_tbl(base_name)}"'))
+        conn.commit()
+
+
+# pytest_sessionstart / pytest_sessionfinish run on the main thread before any
+# test (and before pytest_asyncio creates its event loop threads), ensuring
+# hdbcli's create_all / drop_all calls never race with asyncio.
+
+def pytest_sessionstart(session: pytest.Session) -> None:
+    if not _cfg.hana_test:
         return
     engine = _get_hana_engine()
-    await _create_hana_test_tables(engine)
-    yield
-    await _drop_hana_test_tables(engine)
-    await asyncio.to_thread(engine.dispose)
+    _create_hana_test_tables(engine)
+
+
+def pytest_sessionfinish(session: pytest.Session, exitstatus: int) -> None:
+    if not _cfg.hana_test:
+        return
     global _HANA_TEST_ENGINE
-    _HANA_TEST_ENGINE = None
+    if _HANA_TEST_ENGINE is not None:
+        _drop_hana_test_tables(_HANA_TEST_ENGINE)
+        _HANA_TEST_ENGINE.dispose()
+        _HANA_TEST_ENGINE = None
 
 
 # ── Fixtures ──────────────────────────────────────────────────────────────────
@@ -113,7 +181,7 @@ async def db_session() -> AsyncSession:
         yield bridge
         await bridge.rollback()
         await bridge.close()
-        await _truncate_hana_test_tables(hana_engine)
+        _truncate_hana_test_tables(hana_engine)
 
 
 @pytest_asyncio.fixture
@@ -135,7 +203,7 @@ async def test_db():
         hana_engine = _get_hana_engine()
         sync_factory = sessionmaker(hana_engine, expire_on_commit=False, autoflush=False)
         yield _HANASessionMaker(sync_factory)
-        await _truncate_hana_test_tables(hana_engine)
+        _truncate_hana_test_tables(hana_engine)
 
 
 @pytest_asyncio.fixture
