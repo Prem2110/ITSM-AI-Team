@@ -37,6 +37,10 @@ export default {
       fontSize: {
         '2xs': ['11px', { lineHeight: '16px' }],
       },
+      animation: {
+        'page-enter': 'page-enter 180ms ease-out both',
+        'row-enter':  'row-enter  200ms ease-out both',
+      },
     },
   },
   plugins: [

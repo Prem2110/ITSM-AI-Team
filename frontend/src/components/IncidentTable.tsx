@@ -113,7 +113,7 @@ export function IncidentTable({ items, priorities, sort, order, onSort, isLoadin
               </td>
             </tr>
           )}
-          {items.map(inc => (
+          {items.map((inc, i) => (
             <tr
               key={inc.id}
               onClick={() => navigate(`/incidents/${inc.id}`)}
@@ -121,8 +121,9 @@ export function IncidentTable({ items, priorities, sort, order, onSort, isLoadin
                 height: 32,
                 borderBottom: '1px solid var(--border-subtle)',
                 cursor: 'pointer',
+                animationDelay: `${Math.min(i * 25, 200)}ms`,
               }}
-              className="hover:bg-surface-50 group/row"
+              className="hover:bg-surface-50 group/row animate-row-enter"
             >
               {/* Checkbox */}
               <td
@@ -180,12 +181,6 @@ export function IncidentTable({ items, priorities, sort, order, onSort, isLoadin
         </tbody>
       </table>
 
-      <style>{`
-        @keyframes shimmer {
-          0% { background-position: -200% 0; }
-          100% { background-position: 200% 0; }
-        }
-      `}</style>
     </div>
   )
 }

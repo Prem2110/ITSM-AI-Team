@@ -16,6 +16,11 @@ const NAV_SECTIONS: { header: string; items: NavItem[] }[] = [
     header: 'INCIDENTS',
     items: [
       {
+        label: 'Dashboard',
+        to: '/dashboard',
+        matchFn: (p) => p === '/dashboard',
+      },
+      {
         label: 'All Open',
         to: '/incidents?state=new,assigned,in_progress,on_hold',
         matchFn: (_p, s) => s.includes('state=new%2Cassigned%2Cin_progress%2Con_hold') || s.includes('state=new,assigned,in_progress,on_hold'),
@@ -181,7 +186,9 @@ export default function Layout() {
 
         {/* Main content — NO padding here, pages handle their own */}
         <main className="flex-1 overflow-hidden bg-white flex flex-col">
-          <Outlet />
+          <div key={location.key} className="animate-page-enter flex-1 flex flex-col overflow-hidden">
+            <Outlet />
+          </div>
         </main>
       </div>
     </div>
