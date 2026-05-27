@@ -1,4 +1,7 @@
 from __future__ import annotations
+import json
+import logging
+import os
 from collections.abc import AsyncGenerator
 from sqlalchemy import MetaData
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
@@ -16,9 +19,6 @@ _naming_convention: dict[str, str] = {
 
 def resolve_database_url() -> str:
     """Resolve DB URL in priority order: VCAP_SERVICES > HANA_* vars > DATABASE_URL."""
-    import json
-    import os
-
     # 1. VCAP_SERVICES (SAP BTP production)
     vcap_raw = os.environ.get("VCAP_SERVICES", "")
     if vcap_raw:
@@ -31,6 +31,11 @@ def resolve_database_url() -> str:
             password = creds.get("password", "")
             if host and port and user and password:
                 return f"hana+hdbcli://{user}:{password}@{host}:{port}/"
+            elif any([host, port, user, password]):
+                logging.warning(
+                    "VCAP_SERVICES['hana'] has partial credentials (missing: %s); falling back to HANA_* env vars",
+                    ", ".join(k for k, v in {"host": host, "port": port, "user": user, "password": password}.items() if not v),
+                )
         except (json.JSONDecodeError, IndexError, KeyError):
             pass
 
@@ -49,20 +54,24 @@ def resolve_database_url() -> str:
 _db_url = resolve_database_url()
 
 
+def _hana_connect_args() -> dict:
+    """Build hdbcli connect_args from env_settings."""
+    args: dict = {
+        "encrypt": env_settings.hana_encrypt,
+        "sslValidateCertificate": env_settings.hana_ssl_validate,
+    }
+    if env_settings.hana_schema:
+        args["CURRENTSCHEMA"] = env_settings.hana_schema
+    return args
+
+
 def _make_engine():
     if "hana" in _db_url or "hdbcli" in _db_url:
         # hdbcli is a sync DBAPI; wrap sync engine in AsyncEngine for async session compat.
         # NullPool avoids thread-safety issues when greenlet-dispatching sync calls.
         from sqlalchemy import create_engine, NullPool
         from sqlalchemy.ext.asyncio import AsyncEngine
-        schema = env_settings.hana_schema
-        connect_args = {
-            "encrypt": env_settings.hana_encrypt,
-            "sslValidateCertificate": env_settings.hana_ssl_validate,
-        }
-        if schema:
-            connect_args["CURRENTSCHEMA"] = schema
-        sync_engine = create_engine(_db_url, echo=False, poolclass=NullPool, connect_args=connect_args)
+        sync_engine = create_engine(_db_url, echo=False, poolclass=NullPool, connect_args=_hana_connect_args())
         return AsyncEngine(sync_engine)
     else:
         return create_async_engine(

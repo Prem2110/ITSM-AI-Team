@@ -9,7 +9,7 @@ from sqlalchemy.ext.asyncio import async_engine_from_config
 from alembic import context
 
 # Import Base and ALL models so they register with Base.metadata before autogenerate
-from app.db import Base, resolve_database_url, _db_url
+from app.db import Base, resolve_database_url, _hana_connect_args
 import app.models  # noqa: F401 — registers User, Incident, IncidentEvent, Attachment
 
 config = context.config
@@ -50,18 +50,10 @@ def do_run_migrations(connection: Connection) -> None:
 
 
 async def run_async_migrations() -> None:
-    if "hana" in _db_url or "hdbcli" in _db_url:
+    if "hana" in _resolved_url or "hdbcli" in _resolved_url:
         from sqlalchemy import create_engine, NullPool
         from sqlalchemy.ext.asyncio import AsyncEngine
-        from app.config import env_settings
-        schema = env_settings.hana_schema
-        connect_args = {
-            "encrypt": env_settings.hana_encrypt,
-            "sslValidateCertificate": env_settings.hana_ssl_validate,
-        }
-        if schema:
-            connect_args["CURRENTSCHEMA"] = schema
-        sync_engine = create_engine(_db_url, poolclass=NullPool, connect_args=connect_args)
+        sync_engine = create_engine(_resolved_url, poolclass=NullPool, connect_args=_hana_connect_args())
         connectable = AsyncEngine(sync_engine)
     else:
         connectable = async_engine_from_config(
