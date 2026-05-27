@@ -39,6 +39,33 @@ npm run dev
 
 The UI is now available at http://localhost:5173. API requests to `/api/*` are proxied to the backend.
 
+## Table Prefix
+
+The `TABLE_PREFIX` environment variable prepends a string to every table name, index, constraint name, and HANA sequence used by the backend. This is used to avoid naming collisions when multiple ITSM deployments share a single HANA schema (common in shared-schema dev environments).
+
+| Scenario | `TABLE_PREFIX` | Tables created |
+|----------|----------------|----------------|
+| Production (dedicated HDI Container) | *(empty)* | `users`, `incidents`, … |
+| Shared dev schema — personal sandbox | `ITSM_PREM_` | `ITSM_PREM_users`, `ITSM_PREM_incidents`, … |
+| Shared dev schema — team dev | `ITSM_DEV_` | `ITSM_DEV_users`, `ITSM_DEV_incidents`, … |
+
+### Changing the prefix
+
+The prefix is baked into the migration at generation time. To use a new prefix:
+
+1. Drop all existing tables (or use a fresh schema).
+2. Delete all files in `backend/alembic/versions/`.
+3. Set `TABLE_PREFIX=<new_prefix>` in your environment.
+4. Regenerate: `uv run alembic revision --autogenerate -m "initial"`
+5. Patch the HANA sequence block into the generated migration (see `docs/superpowers/plans/2026-05-27-table-prefix.md` Task 6, Step 4).
+6. Apply: `uv run alembic upgrade head`
+
+**Do not** change the prefix on a running deployment — this would leave the old tables orphaned and create new empty ones.
+
+### Tests
+
+Tests always run with `TABLE_PREFIX=""` (the default). Ensure `backend/.env` does not set `TABLE_PREFIX` to a non-empty value — pydantic-settings reads `.env` at import time, and a non-empty prefix in `.env` will cause all tests to fail with "no such table" errors.
+
 ## Configuration
 
 Edit `backend/config.yaml` to customise per-customer settings:
