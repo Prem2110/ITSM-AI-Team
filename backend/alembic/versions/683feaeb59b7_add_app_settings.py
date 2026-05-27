@@ -38,7 +38,6 @@ def upgrade() -> None:
     sa.Column('setup_completed_by', sa.String(length=36), nullable=True),
     sa.Column('created_at', sa.DateTime(timezone=True), nullable=False),
     sa.Column('updated_at', sa.DateTime(timezone=True), nullable=False),
-    sa.ForeignKeyConstraint(['setup_completed_by'], [f"{tbl('users')}.id"], name=f"fk_{tbl('app_settings')}_setup_completed_by_{tbl('users')}"),
     sa.PrimaryKeyConstraint('id', name=f"pk_{tbl('app_settings')}")
     )
 

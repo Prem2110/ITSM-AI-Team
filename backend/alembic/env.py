@@ -2,7 +2,7 @@ from __future__ import annotations
 import asyncio
 from logging.config import fileConfig
 
-from sqlalchemy import pool
+from sqlalchemy import pool, text
 from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import async_engine_from_config
 
@@ -69,10 +69,16 @@ def run_migrations_hana() -> None:
         _resolved_url, poolclass=pool.NullPool, connect_args=_hana_connect_args()
     )
     with sync_engine.connect() as connection:
+        # HANA uppercases unquoted identifiers; pass current schema so has_table()
+        # can find the existing ALEMBIC_VERSION row in SYS.TABLES.
+        result = connection.execute(text("SELECT CURRENT_SCHEMA FROM DUMMY"))
+        current_schema = result.scalar()
         context.configure(
             connection=connection,
             target_metadata=target_metadata,
             render_as_batch=False,  # HANA supports ALTER TABLE natively
+            version_table="ALEMBIC_VERSION",
+            version_table_schema=current_schema,
         )
         with context.begin_transaction():
             context.run_migrations()

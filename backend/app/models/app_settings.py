@@ -1,6 +1,6 @@
 from __future__ import annotations
 from datetime import datetime
-from sqlalchemy import String, DateTime, ForeignKey
+from sqlalchemy import String, DateTime
 from sqlalchemy.orm import Mapped, mapped_column
 from ..db import Base
 from ..config import tbl
@@ -17,8 +17,6 @@ class AppSettings(Base):
     sla_targets: Mapped[dict | None] = mapped_column(JSONText, nullable=True)
     resolution_codes: Mapped[list | None] = mapped_column(JSONText, nullable=True)
     setup_completed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
-    setup_completed_by: Mapped[str | None] = mapped_column(
-        String(36), ForeignKey(tbl("users") + ".id"), nullable=True
-    )
+    setup_completed_by: Mapped[str | None] = mapped_column(String(36), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, nullable=False)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow, nullable=False)
