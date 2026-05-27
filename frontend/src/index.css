@@ -148,3 +148,8 @@ html.dark .bg-surface-700 { background-color: #475569 !important; }
   0%   { background-position: -200% 0; }
   100% { background-position:  200% 0; }
 }
+
+@keyframes loading-slide {
+  0%   { left: -60%; width: 60%; }
+  100% { left: 110%; width: 60%; }
+}

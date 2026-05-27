@@ -3,8 +3,25 @@ import { useState } from 'react'
 import { Settings, Palette } from 'lucide-react'
 import { clearFakeUser, getFakeUser } from '@/api/auth'
 import { useNavigate } from 'react-router-dom'
+import { useIsFetching } from '@tanstack/react-query'
 import { useSetupStatus } from '@/hooks/useSetupStatus'
 import { useTranslation } from 'react-i18next'
+
+function LoadingBar() {
+  const isFetching = useIsFetching()
+  if (!isFetching) return null
+  return (
+    <div style={{ position: 'fixed', top: 0, left: 0, right: 0, height: 2, zIndex: 9999, overflow: 'hidden', pointerEvents: 'none' }}>
+      <div style={{
+        position: 'absolute',
+        top: 0,
+        height: '100%',
+        background: 'linear-gradient(90deg, #6366f1, #818cf8)',
+        animation: 'loading-slide 900ms ease-in-out infinite',
+      }} />
+    </div>
+  )
+}
 
 interface NavItem {
   label: string
@@ -64,6 +81,7 @@ export default function Layout() {
 
   return (
     <div className="h-screen flex flex-col overflow-hidden">
+      <LoadingBar />
       {/* Top bar */}
       <header
         className="flex-none flex items-center justify-between px-3 bg-white border-b border-surface-200"
