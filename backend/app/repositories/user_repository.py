@@ -37,13 +37,13 @@ class UserRepository:
 
     async def list_active(self) -> list[User]:
         result = await self.session.execute(
-            select(User).where(User.active.is_(True)).order_by(User.name)
+            select(User).where(User.active == True).order_by(User.name)  # noqa: E712
         )
         return list(result.scalars().all())
 
     async def list_by_role(self, role: str) -> list[User]:
         result = await self.session.execute(
-            select(User).where(User.role == role, User.active.is_(True)).order_by(User.name)
+            select(User).where(User.role == role, User.active == True).order_by(User.name)  # noqa: E712
         )
         return list(result.scalars().all())
 

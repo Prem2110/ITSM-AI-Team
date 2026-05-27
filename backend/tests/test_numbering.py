@@ -15,8 +15,9 @@ async def test_second_number_increments(db_session):
     db_session.add(user)
     await db_session.flush()
 
+    first_num = await next_incident_number(db_session)
     inc = Incident(
-        id=str(uuid.uuid4()), number="INC0000001",
+        id=str(uuid.uuid4()), number=first_num,
         title="T", description="D", state="new",
         priority=1, category="Network", source="web",
         requester_id=user.id,

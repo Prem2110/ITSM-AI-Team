@@ -2,7 +2,8 @@ from __future__ import annotations
 from sqlalchemy import select, func, text
 from sqlalchemy.ext.asyncio import AsyncSession
 from ..models.incident import Incident
-from ..config import app_config, env_settings, tbl
+from ..config import app_config, tbl
+from ..db import SyncToAsyncSessionBridge
 
 
 async def next_incident_number(session: AsyncSession) -> str:
@@ -12,9 +13,8 @@ async def next_incident_number(session: AsyncSession) -> str:
     HANA:   DB sequence {tbl('INC_SEQ')} created by the initial migration.
     """
     prefix = app_config.number_prefix
-    db_url = env_settings.database_url.lower()
 
-    if "hana" in db_url or "hdbcli" in db_url:
+    if isinstance(session, SyncToAsyncSessionBridge):
         seq_name = tbl("INC_SEQ")
         result = await session.execute(text(f"SELECT {seq_name}.NEXTVAL FROM DUMMY"))
         n: int = result.scalar_one()

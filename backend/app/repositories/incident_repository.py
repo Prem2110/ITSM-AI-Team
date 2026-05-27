@@ -177,7 +177,7 @@ class IncidentRepository:
 
         breached = (await self.session.execute(
             select(func.count()).select_from(Incident).where(
-                Incident.sla_breached.is_(True),
+                Incident.sla_breached == True,  # noqa: E712
                 Incident.state.notin_(_CLOSED_STATES),
             )
         )).scalar_one()

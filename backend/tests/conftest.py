@@ -109,28 +109,47 @@ def _create_hana_test_tables(engine) -> None:
         if table_name.lower() not in existing:
             table = Base.metadata.tables[table_name]
             table.create(engine)
+    # Create incident number sequence if it doesn't exist
+    seq_name = _tbl("INC_SEQ")
+    with engine.connect() as conn:
+        exists = conn.execute(_text(
+            f"SELECT COUNT(*) FROM SYS.SEQUENCES WHERE SCHEMA_NAME = CURRENT_SCHEMA AND SEQUENCE_NAME = '{seq_name}'"
+        )).scalar()
+        if not exists:
+            conn.execute(_text(f'CREATE SEQUENCE "{seq_name}" START WITH 1 INCREMENT BY 1'))
+        conn.commit()
 
 
 def _drop_hana_test_tables(engine) -> None:
     from app.config import tbl as _tbl
     from sqlalchemy import text as _text
     existing = _hana_existing_tables(engine)
+    seq_name = _tbl("INC_SEQ")
     # Drop children before parents to avoid FK constraint violations
     with engine.connect() as conn:
         for base_name in _HANA_BASE_TABLES:
             table_name = _tbl(base_name)
             if table_name.lower() in existing:
                 conn.execute(_text(f'DROP TABLE "{table_name}"'))
+        # Drop sequence
+        seq_exists = conn.execute(_text(
+            f"SELECT COUNT(*) FROM SYS.SEQUENCES WHERE SCHEMA_NAME = CURRENT_SCHEMA AND SEQUENCE_NAME = '{seq_name}'"
+        )).scalar()
+        if seq_exists:
+            conn.execute(_text(f'DROP SEQUENCE "{seq_name}"'))
         conn.commit()
 
 
 def _truncate_hana_test_tables(engine) -> None:
     from app.config import tbl as _tbl
     from sqlalchemy import text as _text
+    seq_name = _tbl("INC_SEQ")
     # Delete children before parents to avoid FK constraint violations
     with engine.connect() as conn:
         for base_name in _HANA_BASE_TABLES:
             conn.execute(_text(f'DELETE FROM "{_tbl(base_name)}"'))
+        # Reset sequence so each test starts numbering from INC0000001
+        conn.execute(_text(f'ALTER SEQUENCE "{seq_name}" RESTART WITH 1'))
         conn.commit()
 
 

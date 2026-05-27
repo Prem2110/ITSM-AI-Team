@@ -42,4 +42,5 @@ class AttachmentRepository:
         if att is None:
             return False
         await self.session.delete(att)
+        await self.session.flush()
         return True
