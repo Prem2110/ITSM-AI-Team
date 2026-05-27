@@ -96,7 +96,7 @@ def _hana_existing_tables(engine) -> set:
 # Explicit FK-safe order for DML/DDL operations on HANA.
 # sorted_tables / reversed(sorted_tables) can mis-order when hdbcli FK names
 # use mixed-case prefixed strings; hardcoding avoids FK constraint violations.
-_HANA_BASE_TABLES = ["incident_events", "attachments", "incidents", "users"]  # children → parents
+_HANA_BASE_TABLES = ["incident_events", "attachments", "incidents", "app_settings", "users"]  # children → parents
 
 
 def _create_hana_test_tables(engine) -> None:
@@ -150,6 +150,22 @@ def _truncate_hana_test_tables(engine) -> None:
             conn.execute(_text(f'DELETE FROM "{_tbl(base_name)}"'))
         # Reset sequence so each test starts numbering from INC0000001
         conn.execute(_text(f'ALTER SEQUENCE "{seq_name}" RESTART WITH 1'))
+        conn.commit()
+
+
+def _seed_hana_app_settings(engine) -> None:
+    from app.config import tbl as _tbl
+    from sqlalchemy import text as _text
+    import json
+    sla = json.dumps({"1": 4, "2": 8, "3": 24, "4": 72})
+    codes = json.dumps(["Fixed", "Workaround", "No Fault Found", "User Error", "Duplicate"])
+    with engine.connect() as conn:
+        conn.execute(_text(
+            f'INSERT INTO "{_tbl("app_settings")}" '
+            f'(id, company_name, timezone, sla_targets, resolution_codes, '
+            f' setup_completed_at, created_at, updated_at) '
+            f'VALUES (:id, :cn, :tz, :sla, :codes, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)'
+        ), {"id": "singleton", "cn": "Test Corp", "tz": "UTC", "sla": sla, "codes": codes})
         conn.commit()
 
 
@@ -212,6 +228,23 @@ async def test_db():
         async with engine.begin() as conn:
             await conn.run_sync(Base.metadata.create_all)
         factory = async_sessionmaker(engine, expire_on_commit=False, class_=AsyncSession)
+        # Seed app_settings so the setup-guard middleware finds it in tests
+        from app.models.app_settings import AppSettings as _AppSettings
+        from app.utils import utcnow as _utcnow
+        _now = _utcnow()
+        async with factory() as _seed_session:
+            _seed_session.add(_AppSettings(
+                id="singleton",
+                company_name="Test Corp",
+                timezone="UTC",
+                sla_targets={"1": 4, "2": 8, "3": 24, "4": 72},
+                resolution_codes=["Fixed", "Workaround", "No Fault Found", "User Error", "Duplicate"],
+                setup_completed_at=_now,
+                setup_completed_by=None,
+                created_at=_now,
+                updated_at=_now,
+            ))
+            await _seed_session.commit()
         yield factory
         async with engine.begin() as conn:
             await conn.run_sync(Base.metadata.drop_all)
@@ -221,6 +254,7 @@ async def test_db():
         from app.db import SyncToAsyncSessionBridge, _HANASessionMaker
         hana_engine = _get_hana_engine()
         sync_factory = sessionmaker(hana_engine, expire_on_commit=False, autoflush=False)
+        _seed_hana_app_settings(hana_engine)
         yield _HANASessionMaker(sync_factory)
         _truncate_hana_test_tables(hana_engine)
 
@@ -231,6 +265,44 @@ async def client(test_db):
 
     async def override_get_db():
         async with test_db() as session:
+            try:
+                yield session
+                await session.commit()
+            except Exception:
+                await session.rollback()
+                raise
+
+    app.dependency_overrides[get_db] = override_get_db
+    async with AsyncClient(
+        transport=ASGITransport(app=app), base_url="http://test"
+    ) as ac:
+        yield ac
+    app.dependency_overrides.clear()
+
+
+@pytest_asyncio.fixture
+async def test_db_fresh():
+    """Like test_db but WITHOUT seeding app_settings — for setup wizard tests."""
+    from app.config import env_settings as _es
+    if _es.hana_test:
+        pytest.skip("test_db_fresh not supported in HANA mode")
+    engine = create_async_engine("sqlite+aiosqlite:///:memory:")
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+    factory = async_sessionmaker(engine, expire_on_commit=False, class_=AsyncSession)
+    yield factory
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.drop_all)
+    await engine.dispose()
+
+
+@pytest_asyncio.fixture
+async def client_fresh(test_db_fresh):
+    """HTTP test client backed by an unconfigured (no app_settings) DB."""
+    from app.main import app
+
+    async def override_get_db():
+        async with test_db_fresh() as session:
             try:
                 yield session
                 await session.commit()

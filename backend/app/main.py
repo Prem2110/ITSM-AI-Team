@@ -3,6 +3,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from .config import env_settings
 from .routers import session, incidents, events, attachments, config, users, dashboard, setup
+from .middleware.setup_guard import SetupGuardMiddleware
 
 app = FastAPI(
     title="ITSM API",
@@ -16,6 +17,7 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+app.add_middleware(SetupGuardMiddleware)
 
 app.include_router(session.router)
 app.include_router(incidents.router)
