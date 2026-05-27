@@ -50,24 +50,40 @@ def do_run_migrations(connection: Connection) -> None:
 
 
 async def run_async_migrations() -> None:
-    if "hana" in _resolved_url or "hdbcli" in _resolved_url:
-        from sqlalchemy import create_engine, NullPool
-        from sqlalchemy.ext.asyncio import AsyncEngine
-        sync_engine = create_engine(_resolved_url, poolclass=NullPool, connect_args=_hana_connect_args())
-        connectable = AsyncEngine(sync_engine)
-    else:
-        connectable = async_engine_from_config(
-            config.get_section(config.config_ini_section, {}),
-            prefix="sqlalchemy.",
-            poolclass=pool.NullPool,
-        )
+    """SQLite async migration path (aiosqlite driver)."""
+    connectable = async_engine_from_config(
+        config.get_section(config.config_ini_section, {}),
+        prefix="sqlalchemy.",
+        poolclass=pool.NullPool,
+    )
     async with connectable.connect() as connection:
         await connection.run_sync(do_run_migrations)
     await connectable.dispose()
 
 
+def run_migrations_hana() -> None:
+    """HANA sync migration path (hdbcli is sync-only; no asyncio needed)."""
+    from sqlalchemy import create_engine
+    from app.db import _hana_connect_args
+    sync_engine = create_engine(
+        _resolved_url, poolclass=pool.NullPool, connect_args=_hana_connect_args()
+    )
+    with sync_engine.connect() as connection:
+        context.configure(
+            connection=connection,
+            target_metadata=target_metadata,
+            render_as_batch=False,  # HANA supports ALTER TABLE natively
+        )
+        with context.begin_transaction():
+            context.run_migrations()
+    sync_engine.dispose()
+
+
 def run_migrations_online() -> None:
-    asyncio.run(run_async_migrations())
+    if "hana" in _resolved_url or "hdbcli" in _resolved_url:
+        run_migrations_hana()
+    else:
+        asyncio.run(run_async_migrations())
 
 
 if context.is_offline_mode():

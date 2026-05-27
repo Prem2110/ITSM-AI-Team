@@ -1,4 +1,5 @@
 from __future__ import annotations
+import asyncio
 import dataclasses
 import pytest
 import pytest_asyncio
@@ -33,45 +34,38 @@ _HANA_TEST_ENGINE = None  # session-scope singleton
 
 
 def _get_hana_engine():
-    """Get or create the session-scoped HANA engine for tests."""
     global _HANA_TEST_ENGINE
     if _HANA_TEST_ENGINE is None:
         from sqlalchemy import create_engine, NullPool
-        from sqlalchemy.ext.asyncio import AsyncEngine
         from app.db import resolve_database_url, _hana_connect_args
         url = resolve_database_url()
-        if "hana" not in url and "hdbcli" not in url:
+        if not ("hana" in url or "hdbcli" in url):
             raise RuntimeError(
                 "HANA_TEST=1 is set but no HANA URL resolved. "
                 "Check HANA_ADDRESS/PORT/USER/PASSWORD in .env.hana"
             )
-        sync_engine = create_engine(url, poolclass=NullPool, connect_args=_hana_connect_args())
-        _HANA_TEST_ENGINE = AsyncEngine(sync_engine)
+        _HANA_TEST_ENGINE = create_engine(url, poolclass=NullPool, connect_args=_hana_connect_args())
     return _HANA_TEST_ENGINE
 
 
 async def _create_hana_test_tables(engine) -> None:
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
+    await asyncio.to_thread(lambda: Base.metadata.create_all(engine))
 
 
 async def _drop_hana_test_tables(engine) -> None:
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.drop_all)
+    await asyncio.to_thread(lambda: Base.metadata.drop_all(engine))
 
 
 async def _truncate_hana_test_tables(engine) -> None:
-    """Truncate all test tables after each test for isolation.
+    from sqlalchemy import text as _text
 
-    Uses DELETE FROM with double-quoted identifiers because HANA folds
-    unquoted names to uppercase. Tables are deleted in reverse FK order
-    (child tables first).
-    """
-    from sqlalchemy import text
-    async with engine.begin() as conn:
-        table_names = [t.name for t in Base.metadata.sorted_tables]
-        for table_name in reversed(table_names):
-            await conn.execute(text(f'DELETE FROM "{table_name}"'))
+    def _do_truncate():
+        with engine.connect() as conn:
+            for tbl in reversed(Base.metadata.sorted_tables):
+                conn.execute(_text(f'DELETE FROM "{tbl.name}"'))
+            conn.commit()
+
+    await asyncio.to_thread(_do_truncate)
 
 
 @pytest_asyncio.fixture(scope="session", autouse=True)
@@ -88,7 +82,7 @@ async def _hana_session_setup():
     await _create_hana_test_tables(engine)
     yield
     await _drop_hana_test_tables(engine)
-    await engine.dispose()
+    await asyncio.to_thread(engine.dispose)
     global _HANA_TEST_ENGINE
     _HANA_TEST_ENGINE = None
 
@@ -99,7 +93,7 @@ async def _hana_session_setup():
 async def db_session() -> AsyncSession:
     from app.config import env_settings
     if not env_settings.hana_test:
-        # Original SQLite in-memory path
+        # Original SQLite in-memory path (unchanged)
         engine = create_async_engine("sqlite+aiosqlite:///:memory:")
         async with engine.begin() as conn:
             await conn.run_sync(Base.metadata.create_all)
@@ -110,19 +104,23 @@ async def db_session() -> AsyncSession:
             await conn.run_sync(Base.metadata.drop_all)
         await engine.dispose()
     else:
-        # HANA path: use shared session-scoped engine, truncate after each test
-        engine = _get_hana_engine()
-        factory = async_sessionmaker(engine, expire_on_commit=False, class_=AsyncSession, autoflush=False)
-        async with factory() as session:
-            yield session
-        await _truncate_hana_test_tables(engine)
+        from sqlalchemy.orm import sessionmaker, Session
+        from app.db import SyncToAsyncSessionBridge
+        hana_engine = _get_hana_engine()
+        SyncSession = sessionmaker(hana_engine, expire_on_commit=False, autoflush=False)
+        sync_session = SyncSession()
+        bridge = SyncToAsyncSessionBridge(sync_session)
+        yield bridge
+        await bridge.rollback()
+        await bridge.close()
+        await _truncate_hana_test_tables(hana_engine)
 
 
 @pytest_asyncio.fixture
 async def test_db():
     from app.config import env_settings
     if not env_settings.hana_test:
-        # Original SQLite in-memory path
+        # Original SQLite in-memory path (unchanged)
         engine = create_async_engine("sqlite+aiosqlite:///:memory:")
         async with engine.begin() as conn:
             await conn.run_sync(Base.metadata.create_all)
@@ -132,11 +130,12 @@ async def test_db():
             await conn.run_sync(Base.metadata.drop_all)
         await engine.dispose()
     else:
-        # HANA path: use shared session-scoped engine, truncate after each test
-        engine = _get_hana_engine()
-        factory = async_sessionmaker(engine, expire_on_commit=False, class_=AsyncSession)
-        yield factory
-        await _truncate_hana_test_tables(engine)
+        from sqlalchemy.orm import sessionmaker
+        from app.db import SyncToAsyncSessionBridge, _HANASessionMaker
+        hana_engine = _get_hana_engine()
+        sync_factory = sessionmaker(hana_engine, expire_on_commit=False, autoflush=False)
+        yield _HANASessionMaker(sync_factory)
+        await _truncate_hana_test_tables(hana_engine)
 
 
 @pytest_asyncio.fixture
