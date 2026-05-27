@@ -39,6 +39,71 @@ npm run dev
 
 The UI is now available at http://localhost:5173. API requests to `/api/*` are proxied to the backend.
 
+## Running against HANA
+
+### Setup
+
+1. Create `backend/.env.hana` (gitignored):
+   ```
+   HANA_ADDRESS=<your-host>.hana.cloud.sap
+   HANA_PORT=443
+   HANA_USER=<user>
+   HANA_PASSWORD=<password>
+   HANA_SCHEMA=<schema>
+   HANA_ENCRYPT=true
+   HANA_SSL_VALIDATE=false
+   TABLE_PREFIX=ITSM_PREM_  # or any unique prefix for your deployment
+   ```
+
+2. Install `hdbcli` (SAP HANA Python driver — requires SAP credentials):
+   ```bash
+   cd backend
+   uv add hdbcli
+   ```
+   `sqlalchemy-hana` is already in `pyproject.toml` and installed by `uv sync`.
+
+3. Check for table-name collisions in the shared schema:
+   ```bash
+   cd backend
+   uv run python scripts/inspect_hana.py
+   ```
+   If no collisions are reported, proceed.
+
+### Running migrations against HANA
+
+```bash
+cd backend
+uv run alembic upgrade head
+```
+
+The URL resolver detects `HANA_ADDRESS` in `.env.hana` and routes to HANA automatically.
+
+### Running tests against HANA
+
+```bash
+cd backend
+HANA_TEST=1 uv run pytest -v
+```
+
+This:
+- Creates `ITSM_TEST_*` tables in the HANA schema at session start
+- Runs all 102 tests against the real HANA engine
+- Truncates tables between tests for isolation
+- Drops `ITSM_TEST_*` tables at session end
+
+Expected: 102 tests pass. Any failures indicate a HANA dialect issue — see `backend/HANA_NOTES.md`.
+
+### Expected output (migration)
+
+```
+INFO  [alembic.runtime.migration] Running upgrade  -> 1662b6fded47, initial
+```
+
+Tables created: `ITSM_PREM_users`, `ITSM_PREM_incidents`, `ITSM_PREM_incident_events`, `ITSM_PREM_attachments`
+Sequence created: `ITSM_PREM_INC_SEQ`
+
+---
+
 ## Table Prefix
 
 The `TABLE_PREFIX` environment variable prepends a string to every table name, index, constraint name, and HANA sequence used by the backend. This is used to avoid naming collisions when multiple ITSM deployments share a single HANA schema (common in shared-schema dev environments).
