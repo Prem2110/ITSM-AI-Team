@@ -56,6 +56,7 @@ class EnvSettings(BaseSettings):
     xsuaa_client_secret: str = ""
     xsuaa_xsappname: str = ""
     cors_origins: list[str] = ["*"]
+    table_prefix: str = ""
 
 
 def _load_yaml_config() -> AppConfig:
@@ -74,3 +75,8 @@ def _load_yaml_config() -> AppConfig:
 # Singletons loaded at import time
 app_config: AppConfig = _load_yaml_config()
 env_settings: EnvSettings = EnvSettings()
+
+
+def tbl(name: str) -> str:
+    """Prefix a table or object name with TABLE_PREFIX (empty = no-op)."""
+    return env_settings.table_prefix + name
