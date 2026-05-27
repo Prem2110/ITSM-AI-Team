@@ -1,16 +1,18 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { setFakeUser } from '@/api/auth'
 
 const SEEDED_USERS = [
-  { email: 'admin@acme.com', label: 'Alex Admin (admin)' },
-  { email: 'sarah.chen@acme.com', label: 'Sarah Chen (agent)' },
-  { email: 'james.park@acme.com', label: 'James Park (requester)' },
+  { email: 'admin@acme.com',       label: 'Alex Admin (admin)'       },
+  { email: 'sarah.chen@acme.com',  label: 'Sarah Chen (agent)'       },
+  { email: 'james.park@acme.com',  label: 'James Park (requester)'   },
 ]
 
 export default function Login() {
   const [selected, setSelected] = useState(SEEDED_USERS[1].email)
   const navigate = useNavigate()
+  const { t } = useTranslation()
 
   function handleLogin() {
     setFakeUser(selected)
@@ -21,12 +23,12 @@ export default function Login() {
     <div className="min-h-screen bg-surface-100 flex items-center justify-center">
       <div className="bg-white border border-surface-200 p-6 w-80" style={{ borderRadius: 3 }}>
         <div className="mb-4">
-          <div className="text-sm font-semibold text-surface-800 mb-0.5">ITSM</div>
-          <div className="text-xs text-surface-500">Dev login — fake auth mode</div>
+          <div className="text-sm font-semibold text-surface-800 mb-0.5">{t('login.title')}</div>
+          <div className="text-xs text-surface-500">{t('login.subtitle')}</div>
         </div>
 
         <div className="mb-3">
-          <label className="block text-xs text-surface-600 mb-1 font-medium">Sign in as</label>
+          <label className="block text-xs text-surface-600 mb-1 font-medium">{t('login.signInAs')}</label>
           <select
             value={selected}
             onChange={(e) => setSelected(e.target.value)}
@@ -44,7 +46,7 @@ export default function Login() {
           className="w-full bg-surface-800 text-white text-xs font-medium py-1.5 hover:bg-surface-700 transition-colors"
           style={{ borderRadius: 2 }}
         >
-          Log in
+          {t('login.logIn')}
         </button>
       </div>
     </div>

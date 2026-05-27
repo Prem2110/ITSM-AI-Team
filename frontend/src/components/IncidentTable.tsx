@@ -1,21 +1,11 @@
 import { useNavigate } from 'react-router-dom'
 import { ChevronUp, ChevronDown, ChevronsUpDown } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { PriorityBadge } from './PriorityBadge'
 import { StateBadge } from './StateBadge'
 import { relativeTime } from '@/utils/relativeTime'
 import type { IncidentListItem } from '@/types'
 import type { Priority } from '@/types'
-
-const COL_HEADERS: { key: string; label: string; sortable: boolean; width: number | string; align?: string }[] = [
-  { key: 'checkbox', label: '', sortable: false, width: 32 },
-  { key: 'number',   label: 'Number',      sortable: true,  width: 110 },
-  { key: 'priority', label: 'Priority',    sortable: true,  width: 88 },
-  { key: 'state',    label: 'State',       sortable: false, width: 108 },
-  { key: 'title',    label: 'Short Description', sortable: false, width: 'auto' },
-  { key: 'category', label: 'Category',   sortable: false, width: 140 },
-  { key: 'assignee', label: 'Assigned To', sortable: false, width: 150 },
-  { key: 'updated',  label: 'Updated',    sortable: true,  width: 90, align: 'right' },
-]
 
 interface Props {
   items: IncidentListItem[]
@@ -28,6 +18,18 @@ interface Props {
 
 export function IncidentTable({ items, priorities, sort, order, onSort, isLoading }: Props) {
   const navigate = useNavigate()
+  const { t } = useTranslation()
+
+  const COL_HEADERS: { key: string; label: string; sortable: boolean; width: number | string; align?: string }[] = [
+    { key: 'checkbox',  label: '',                          sortable: false, width: 32 },
+    { key: 'number',    label: t('incidents.number'),       sortable: true,  width: 110 },
+    { key: 'priority',  label: t('incidents.priority'),     sortable: true,  width: 88 },
+    { key: 'state',     label: t('incidents.state'),        sortable: false, width: 108 },
+    { key: 'title',     label: t('incidents.shortDescription'), sortable: false, width: 'auto' },
+    { key: 'category',  label: t('incidents.category'),     sortable: false, width: 140 },
+    { key: 'assignee',  label: t('incidents.assignedTo'),   sortable: false, width: 150 },
+    { key: 'updated',   label: t('incidents.updated'),      sortable: true,  width: 90, align: 'right' },
+  ]
 
   function handleSort(colKey: string) {
     if (sort === colKey) {
@@ -109,7 +111,7 @@ export function IncidentTable({ items, priorities, sort, order, onSort, isLoadin
           {items.length === 0 && !isLoading && (
             <tr>
               <td colSpan={COL_HEADERS.length} style={{ padding: '24px 12px', textAlign: 'center', color: 'var(--text-subtle)', fontSize: 12 }}>
-                No incidents match these filters.
+                {t('incidents.noMatch')}
               </td>
             </tr>
           )}

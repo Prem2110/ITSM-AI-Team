@@ -4,6 +4,7 @@ import { Settings, Palette } from 'lucide-react'
 import { clearFakeUser, getFakeUser } from '@/api/auth'
 import { useNavigate } from 'react-router-dom'
 import { useSetupStatus } from '@/hooks/useSetupStatus'
+import { useTranslation } from 'react-i18next'
 
 interface NavItem {
   label: string
@@ -11,49 +12,7 @@ interface NavItem {
   matchFn?: (pathname: string, search: string) => boolean
 }
 
-const NAV_SECTIONS: { header: string; items: NavItem[] }[] = [
-  {
-    header: 'INCIDENTS',
-    items: [
-      {
-        label: 'Dashboard',
-        to: '/dashboard',
-        matchFn: (p) => p === '/dashboard',
-      },
-      {
-        label: 'All Open',
-        to: '/incidents?state=new,assigned,in_progress,on_hold',
-        matchFn: (_p, s) => s.includes('state=new%2Cassigned%2Cin_progress%2Con_hold') || s.includes('state=new,assigned,in_progress,on_hold'),
-      },
-      {
-        label: 'My Open',
-        to: '/incidents?assignee_id=me&state=new,assigned,in_progress,on_hold',
-        matchFn: (_p, s) => s.includes('assignee_id=me'),
-      },
-      {
-        label: 'Unassigned',
-        to: '/incidents?assignee_id=unassigned',
-        matchFn: (_p, s) => s.includes('assignee_id=unassigned'),
-      },
-      {
-        label: 'Resolved Today',
-        to: '/incidents?state=resolved',
-        matchFn: (_p, s) => s === '?state=resolved' || s === 'state=resolved',
-      },
-      {
-        label: 'All Incidents',
-        to: '/incidents',
-        matchFn: (p, s) => p === '/incidents' && s === '',
-      },
-    ],
-  },
-  {
-    header: 'CREATE',
-    items: [
-      { label: 'New Incident', to: '/incidents/new' },
-    ],
-  },
-]
+// Nav sections are built inside the component so labels re-render on language change
 
 export default function Layout() {
   const navigate = useNavigate()
@@ -61,6 +20,27 @@ export default function Layout() {
   const email = getFakeUser() ?? ''
   const [navFilter, setNavFilter] = useState('')
   const { data: setupStatus } = useSetupStatus()
+  const { t } = useTranslation()
+
+  const NAV_SECTIONS: { header: string; items: NavItem[] }[] = [
+    {
+      header: t('nav.incidents'),
+      items: [
+        { label: t('nav.dashboard'),      to: '/dashboard',                                             matchFn: (p) => p === '/dashboard' },
+        { label: t('nav.allOpen'),         to: '/incidents?state=new,assigned,in_progress,on_hold',     matchFn: (_p, s) => s.includes('state=new%2Cassigned%2Cin_progress%2Con_hold') || s.includes('state=new,assigned,in_progress,on_hold') },
+        { label: t('nav.myOpen'),          to: '/incidents?assignee_id=me&state=new,assigned,in_progress,on_hold', matchFn: (_p, s) => s.includes('assignee_id=me') },
+        { label: t('nav.unassigned'),      to: '/incidents?assignee_id=unassigned',                    matchFn: (_p, s) => s.includes('assignee_id=unassigned') },
+        { label: t('nav.resolvedToday'),   to: '/incidents?state=resolved',                            matchFn: (_p, s) => s === '?state=resolved' || s === 'state=resolved' },
+        { label: t('nav.allIncidents'),    to: '/incidents',                                            matchFn: (p, s) => p === '/incidents' && s === '' },
+      ],
+    },
+    {
+      header: t('nav.create'),
+      items: [
+        { label: t('nav.newIncident'), to: '/incidents/new' },
+      ],
+    },
+  ]
 
   function handleLogout() {
     clearFakeUser()
@@ -107,7 +87,7 @@ export default function Layout() {
             className="text-xs text-surface-500 hover:text-surface-700 border border-surface-200 px-2 py-0.5 hover:bg-surface-50 transition-colors"
             style={{ borderRadius: 2 }}
           >
-            Logout
+            {t('nav.logout')}
           </button>
         </div>
       </header>
@@ -121,7 +101,7 @@ export default function Layout() {
           <div className="px-2 pt-2 pb-1">
             <input
               type="text"
-              placeholder="Filter navigator..."
+              placeholder={t('nav.filterPlaceholder')}
               value={navFilter}
               onChange={e => setNavFilter(e.target.value)}
               className="w-full text-xs border border-surface-200 bg-white px-2 py-1 focus:outline-none focus:border-surface-400 placeholder-surface-400"
@@ -166,7 +146,7 @@ export default function Layout() {
                 style={{ height: 28, lineHeight: '28px', textDecoration: 'none' }}
               >
                 <Settings size={12} className="flex-none" />
-                Settings
+                {t('nav.settings')}
               </Link>
               <Link
                 to="/settings/appearance"
@@ -178,7 +158,7 @@ export default function Layout() {
                 style={{ height: 28, lineHeight: '28px', textDecoration: 'none' }}
               >
                 <Palette size={12} className="flex-none" />
-                Appearance
+                {t('nav.appearance')}
               </Link>
             </div>
           </nav>

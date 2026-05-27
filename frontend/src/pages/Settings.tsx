@@ -1,13 +1,16 @@
 import { useNavigate } from 'react-router-dom'
 import { ChevronLeft, Monitor, Moon, Sun, Check } from 'lucide-react'
-import { useSettings, type Theme, type FontSize, type FontFamily } from '@/contexts/SettingsContext'
+import { useTranslation } from 'react-i18next'
+import { useSettings, type Theme, type FontSize, type FontFamily, type Language } from '@/contexts/SettingsContext'
 
 // ─── data ────────────────────────────────────────────────────────────────────
 
-const THEMES: { value: Theme; label: string; Icon: typeof Sun; description: string }[] = [
-  { value: 'light', label: 'Light',  Icon: Sun,     description: 'Always light' },
-  { value: 'dark',  label: 'Dark',   Icon: Moon,    description: 'Always dark'  },
-  { value: 'system',label: 'System', Icon: Monitor, description: 'Follow OS'    },
+const LANGUAGES: { value: Language; label: string; native: string }[] = [
+  { value: 'en', label: 'English',  native: 'English'  },
+  { value: 'fr', label: 'French',   native: 'Français'  },
+  { value: 'de', label: 'German',   native: 'Deutsch'   },
+  { value: 'es', label: 'Spanish',  native: 'Español'   },
+  { value: 'zh', label: 'Mandarin', native: '中文'       },
 ]
 
 const FONT_SIZES: { value: FontSize; label: string; previewPx: number }[] = [
@@ -61,7 +64,6 @@ function ThemePreview({ dark }: { dark: boolean }) {
       borderRadius: 2, overflow: 'hidden',
       display: 'flex', border: `1px solid ${border}`,
     }}>
-      {/* sidebar strip */}
       <div style={{
         width: 28, background: sidebar,
         borderRight: `1px solid ${border}`,
@@ -76,7 +78,6 @@ function ThemePreview({ dark }: { dark: boolean }) {
           }} />
         ))}
       </div>
-      {/* content */}
       <div style={{ flex: 1, background: panel, padding: '5px 6px', display: 'flex', flexDirection: 'column', gap: 3 }}>
         <div style={{ height: 4, width: '55%', borderRadius: 1, background: bar }} />
         {[1, 0.8, 0.7].map((w, i) => (
@@ -95,7 +96,14 @@ function ThemePreview({ dark }: { dark: boolean }) {
 
 export default function Settings() {
   const navigate = useNavigate()
-  const { theme, fontSize, fontFamily, setTheme, setFontSize, setFontFamily } = useSettings()
+  const { t } = useTranslation()
+  const { theme, fontSize, fontFamily, language, setTheme, setFontSize, setFontFamily, setLanguage } = useSettings()
+
+  const THEMES: { value: Theme; label: string; Icon: typeof Sun; description: string }[] = [
+    { value: 'light',  label: t('settings.light'),  Icon: Sun,     description: t('settings.alwaysLight') },
+    { value: 'dark',   label: t('settings.dark'),   Icon: Moon,    description: t('settings.alwaysDark')  },
+    { value: 'system', label: t('settings.system'), Icon: Monitor, description: t('settings.followOs')    },
+  ]
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
@@ -109,10 +117,10 @@ export default function Settings() {
           className="flex items-center gap-1 text-xs text-surface-500 hover:text-surface-700 transition-colors"
         >
           <ChevronLeft size={14} />
-          Back
+          {t('settings.back')}
         </button>
         <span className="text-surface-300 flex-none">|</span>
-        <span className="font-semibold text-surface-900" style={{ fontSize: 15 }}>Settings</span>
+        <span className="font-semibold text-surface-900" style={{ fontSize: 15 }}>{t('settings.title')}</span>
       </div>
 
       {/* Body */}
@@ -121,15 +129,13 @@ export default function Settings() {
 
           {/* ── Appearance ── */}
           <section className="mb-8">
-            <div
-              className="text-2xs font-semibold text-surface-400 uppercase tracking-widest pb-2 mb-5 border-b border-surface-200"
-            >
-              Appearance
+            <div className="text-2xs font-semibold text-surface-400 uppercase tracking-widest pb-2 mb-5 border-b border-surface-200">
+              {t('settings.appearance')}
             </div>
 
             {/* Theme */}
             <div className="mb-6">
-              <div className="text-xs font-semibold text-surface-600 mb-3 uppercase tracking-wider" style={{ fontSize: 11 }}>Theme</div>
+              <div className="text-xs font-semibold text-surface-600 mb-3 uppercase tracking-wider" style={{ fontSize: 11 }}>{t('settings.theme')}</div>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>
                 {THEMES.map(({ value, label, Icon, description }) => {
                   const active = theme === value
@@ -174,7 +180,7 @@ export default function Settings() {
 
             {/* Interface Scale */}
             <div className="mb-6">
-              <div className="text-xs font-semibold text-surface-600 mb-3 uppercase tracking-wider" style={{ fontSize: 11 }}>Interface Scale</div>
+              <div className="text-xs font-semibold text-surface-600 mb-3 uppercase tracking-wider" style={{ fontSize: 11 }}>{t('settings.interfaceScale')}</div>
               <div
                 className="flex border border-surface-200 bg-white"
                 style={{ borderRadius: 3, overflow: 'hidden' }}
@@ -215,13 +221,13 @@ export default function Settings() {
                 })}
               </div>
               <p className="text-2xs text-surface-400 mt-1.5">
-                Scales the entire interface. Takes effect immediately.
+                {t('settings.scaleHint')}
               </p>
             </div>
 
-            {/* Font */}
-            <div>
-              <div className="text-xs font-semibold text-surface-600 mb-3 uppercase tracking-wider" style={{ fontSize: 11 }}>Typeface</div>
+            {/* Typeface */}
+            <div className="mb-6">
+              <div className="text-xs font-semibold text-surface-600 mb-3 uppercase tracking-wider" style={{ fontSize: 11 }}>{t('settings.typeface')}</div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                 {FONTS.map(({ value, label, stack, tagline }) => {
                   const active = fontFamily === value
@@ -241,7 +247,6 @@ export default function Settings() {
                         textAlign: 'left',
                       }}
                     >
-                      {/* Sample */}
                       <div style={{ flex: 'none', width: 120 }}>
                         <span style={{
                           fontFamily: stack,
@@ -255,7 +260,6 @@ export default function Settings() {
                           Aa Bb 012
                         </span>
                       </div>
-                      {/* Label */}
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{
                           fontFamily: stack,
@@ -268,7 +272,6 @@ export default function Settings() {
                         </div>
                         <div style={{ fontSize: 11, color: 'var(--text-subtle)' }}>{tagline}</div>
                       </div>
-                      {/* Check */}
                       <div style={{
                         width: 18, height: 18, borderRadius: '50%', flexShrink: 0,
                         border: `2px solid ${active ? 'var(--text-primary)' : 'var(--border-color)'}`,
@@ -282,7 +285,48 @@ export default function Settings() {
                 })}
               </div>
               <p className="text-2xs text-surface-400 mt-1.5">
-                IBM Plex Sans and DM Sans are loaded from Google Fonts.
+                {t('settings.typefaceHint')}
+              </p>
+            </div>
+
+            {/* Language */}
+            <div>
+              <div className="text-xs font-semibold text-surface-600 mb-3 uppercase tracking-wider" style={{ fontSize: 11 }}>{t('settings.language')}</div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 8 }}>
+                {LANGUAGES.map(({ value, label, native }) => {
+                  const active = language === value
+                  return (
+                    <button
+                      key={value}
+                      onClick={() => setLanguage(value)}
+                      style={{
+                        padding: '10px 8px',
+                        borderRadius: 3,
+                        border: active ? '2px solid var(--text-primary)' : '1px solid var(--border-color)',
+                        background: active ? 'var(--surface-active)' : 'var(--bg-primary)',
+                        cursor: 'pointer',
+                        textAlign: 'center',
+                        position: 'relative',
+                      }}
+                    >
+                      {active && (
+                        <span style={{
+                          position: 'absolute', top: 4, right: 4,
+                          width: 14, height: 14, borderRadius: '50%',
+                          background: 'var(--text-primary)',
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        }}>
+                          <Check size={8} style={{ color: 'var(--bg-primary)' }} />
+                        </span>
+                      )}
+                      <div style={{ fontSize: 18, marginBottom: 4, lineHeight: 1 }}>{native}</div>
+                      <div style={{ fontSize: 10, color: 'var(--text-subtle)', fontWeight: active ? 600 : 400 }}>{label}</div>
+                    </button>
+                  )
+                })}
+              </div>
+              <p className="text-2xs text-surface-400 mt-1.5">
+                {t('settings.languageHint')}
               </p>
             </div>
 

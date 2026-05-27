@@ -1,0 +1,67 @@
+{
+  "nav": {
+    "incidents": "INCIDENTS",
+    "create": "CREATE",
+    "dashboard": "Dashboard",
+    "allOpen": "All Open",
+    "myOpen": "My Open",
+    "unassigned": "Unassigned",
+    "resolvedToday": "Resolved Today",
+    "allIncidents": "All Incidents",
+    "newIncident": "New Incident",
+    "settings": "Settings",
+    "appearance": "Appearance",
+    "filterPlaceholder": "Filter navigator...",
+    "logout": "Logout"
+  },
+  "dashboard": {
+    "title": "Dashboard",
+    "myOpen": "My Open",
+    "allOpen": "All Open",
+    "unassigned": "Unassigned",
+    "breachedSlas": "Breached SLAs",
+    "newVsResolved": "New vs Resolved — 14 days",
+    "slaCompliance": "SLA Compliance — 30 days",
+    "openByPriority": "Open by Priority",
+    "topCategories": "Top Categories — 30 days",
+    "new": "New",
+    "resolved": "Resolved",
+    "resolvedOnTime": "{{met}} of {{total}} incidents resolved on time",
+    "noResolved": "No resolved incidents in the last 30 days.",
+    "noIncidents": "No incidents in the last 30 days."
+  },
+  "incidents": {
+    "number": "Number",
+    "priority": "Priority",
+    "state": "State",
+    "shortDescription": "Short Description",
+    "category": "Category",
+    "assignedTo": "Assigned To",
+    "updated": "Updated",
+    "noMatch": "No incidents match these filters."
+  },
+  "login": {
+    "title": "ITSM",
+    "subtitle": "Dev login — fake auth mode",
+    "signInAs": "Sign in as",
+    "logIn": "Log in"
+  },
+  "settings": {
+    "title": "Settings",
+    "back": "Back",
+    "appearance": "Appearance",
+    "theme": "Theme",
+    "light": "Light",
+    "dark": "Dark",
+    "system": "System",
+    "alwaysLight": "Always light",
+    "alwaysDark": "Always dark",
+    "followOs": "Follow OS",
+    "interfaceScale": "Interface Scale",
+    "scaleHint": "Scales the entire interface. Takes effect immediately.",
+    "typeface": "Typeface",
+    "typefaceHint": "IBM Plex Sans and DM Sans are loaded from Google Fonts.",
+    "language": "Language",
+    "languageHint": "Changes take effect immediately."
+  }
+}

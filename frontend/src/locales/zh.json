@@ -1,0 +1,67 @@
+{
+  "nav": {
+    "incidents": "事件",
+    "create": "创建",
+    "dashboard": "仪表盘",
+    "allOpen": "全部待处理",
+    "myOpen": "我的待处理",
+    "unassigned": "未分配",
+    "resolvedToday": "今日已解决",
+    "allIncidents": "所有事件",
+    "newIncident": "新建事件",
+    "settings": "设置",
+    "appearance": "外观",
+    "filterPlaceholder": "过滤导航...",
+    "logout": "退出登录"
+  },
+  "dashboard": {
+    "title": "仪表盘",
+    "myOpen": "我的待处理",
+    "allOpen": "全部待处理",
+    "unassigned": "未分配",
+    "breachedSlas": "SLA 违反",
+    "newVsResolved": "新建与已解决 — 14天",
+    "slaCompliance": "SLA 合规率 — 30天",
+    "openByPriority": "按优先级统计",
+    "topCategories": "热门类别 — 30天",
+    "new": "新建",
+    "resolved": "已解决",
+    "resolvedOnTime": "{{total}} 个事件中 {{met}} 个按时解决",
+    "noResolved": "过去30天内无已解决事件。",
+    "noIncidents": "过去30天内无事件。"
+  },
+  "incidents": {
+    "number": "编号",
+    "priority": "优先级",
+    "state": "状态",
+    "shortDescription": "简短描述",
+    "category": "类别",
+    "assignedTo": "分配给",
+    "updated": "更新时间",
+    "noMatch": "没有事件符合这些过滤条件。"
+  },
+  "login": {
+    "title": "ITSM",
+    "subtitle": "开发登录 — 模拟认证模式",
+    "signInAs": "以…身份登录",
+    "logIn": "登录"
+  },
+  "settings": {
+    "title": "设置",
+    "back": "返回",
+    "appearance": "外观",
+    "theme": "主题",
+    "light": "浅色",
+    "dark": "深色",
+    "system": "跟随系统",
+    "alwaysLight": "始终浅色",
+    "alwaysDark": "始终深色",
+    "followOs": "跟随系统",
+    "interfaceScale": "界面缩放",
+    "scaleHint": "缩放整个界面，立即生效。",
+    "typeface": "字体",
+    "typefaceHint": "IBM Plex Sans 和 DM Sans 从 Google Fonts 加载。",
+    "language": "语言",
+    "languageHint": "更改立即生效。"
+  }
+}

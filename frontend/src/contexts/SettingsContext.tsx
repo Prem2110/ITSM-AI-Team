@@ -1,8 +1,10 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
+import i18n from '@/i18n'
 
 export type Theme = 'light' | 'dark' | 'system'
 export type FontSize = 'compact' | 'default' | 'comfortable' | 'large'
 export type FontFamily = 'system' | 'google-sans' | 'ibm-plex' | 'dm-sans'
+export type Language = 'en' | 'fr' | 'de' | 'es' | 'zh'
 
 const FONT_ZOOM: Record<FontSize, string> = {
   compact: '0.875',
@@ -22,9 +24,11 @@ interface SettingsCtx {
   theme: Theme
   fontSize: FontSize
   fontFamily: FontFamily
+  language: Language
   setTheme: (t: Theme) => void
   setFontSize: (f: FontSize) => void
   setFontFamily: (f: FontFamily) => void
+  setLanguage: (l: Language) => void
   resolvedTheme: 'light' | 'dark'
 }
 
@@ -59,6 +63,9 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
   const [fontFamily, setFontFamilyState] = useState<FontFamily>(
     () => (localStorage.getItem('itsm:fontFamily') as FontFamily | null) ?? 'system'
   )
+  const [language, setLanguageState] = useState<Language>(
+    () => (localStorage.getItem('itsm:language') as Language | null) ?? 'en'
+  )
 
   const resolvedTheme: 'light' | 'dark' =
     theme === 'system' ? (getSystemDark() ? 'dark' : 'light') : theme
@@ -88,9 +95,14 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     localStorage.setItem('itsm:fontFamily', f)
     setFontFamilyState(f)
   }
+  function setLanguage(l: Language) {
+    localStorage.setItem('itsm:language', l)
+    setLanguageState(l)
+    i18n.changeLanguage(l)
+  }
 
   return (
-    <Ctx.Provider value={{ theme, fontSize, fontFamily, setTheme, setFontSize, setFontFamily, resolvedTheme }}>
+    <Ctx.Provider value={{ theme, fontSize, fontFamily, language, setTheme, setFontSize, setFontFamily, setLanguage, resolvedTheme }}>
       {children}
     </Ctx.Provider>
   )

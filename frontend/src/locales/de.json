@@ -1,0 +1,67 @@
+{
+  "nav": {
+    "incidents": "VORFÄLLE",
+    "create": "ERSTELLEN",
+    "dashboard": "Dashboard",
+    "allOpen": "Alle offenen",
+    "myOpen": "Meine offenen",
+    "unassigned": "Nicht zugewiesen",
+    "resolvedToday": "Heute gelöst",
+    "allIncidents": "Alle Vorfälle",
+    "newIncident": "Neuer Vorfall",
+    "settings": "Einstellungen",
+    "appearance": "Erscheinungsbild",
+    "filterPlaceholder": "Navigator filtern...",
+    "logout": "Abmelden"
+  },
+  "dashboard": {
+    "title": "Dashboard",
+    "myOpen": "Meine offenen",
+    "allOpen": "Alle offenen",
+    "unassigned": "Nicht zugewiesen",
+    "breachedSlas": "SLA-Verletzungen",
+    "newVsResolved": "Neu vs. Gelöst — 14 Tage",
+    "slaCompliance": "SLA-Einhaltung — 30 Tage",
+    "openByPriority": "Offen nach Priorität",
+    "topCategories": "Top-Kategorien — 30 Tage",
+    "new": "Neu",
+    "resolved": "Gelöst",
+    "resolvedOnTime": "{{met}} von {{total}} Vorfällen rechtzeitig gelöst",
+    "noResolved": "Keine gelösten Vorfälle in den letzten 30 Tagen.",
+    "noIncidents": "Keine Vorfälle in den letzten 30 Tagen."
+  },
+  "incidents": {
+    "number": "Nummer",
+    "priority": "Priorität",
+    "state": "Status",
+    "shortDescription": "Kurzbeschreibung",
+    "category": "Kategorie",
+    "assignedTo": "Zugewiesen an",
+    "updated": "Aktualisiert",
+    "noMatch": "Keine Vorfälle entsprechen diesen Filtern."
+  },
+  "login": {
+    "title": "ITSM",
+    "subtitle": "Dev-Anmeldung — Fake-Auth-Modus",
+    "signInAs": "Anmelden als",
+    "logIn": "Anmelden"
+  },
+  "settings": {
+    "title": "Einstellungen",
+    "back": "Zurück",
+    "appearance": "Erscheinungsbild",
+    "theme": "Thema",
+    "light": "Hell",
+    "dark": "Dunkel",
+    "system": "System",
+    "alwaysLight": "Immer hell",
+    "alwaysDark": "Immer dunkel",
+    "followOs": "OS folgen",
+    "interfaceScale": "Oberflächenskalierung",
+    "scaleHint": "Skaliert die gesamte Oberfläche. Wirkt sofort.",
+    "typeface": "Schriftart",
+    "typefaceHint": "IBM Plex Sans und DM Sans werden von Google Fonts geladen.",
+    "language": "Sprache",
+    "languageHint": "Änderungen werden sofort übernommen."
+  }
+}

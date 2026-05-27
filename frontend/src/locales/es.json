@@ -1,0 +1,67 @@
+{
+  "nav": {
+    "incidents": "INCIDENTES",
+    "create": "CREAR",
+    "dashboard": "Panel",
+    "allOpen": "Todos abiertos",
+    "myOpen": "Mis abiertos",
+    "unassigned": "Sin asignar",
+    "resolvedToday": "Resueltos hoy",
+    "allIncidents": "Todos los incidentes",
+    "newIncident": "Nuevo incidente",
+    "settings": "Configuración",
+    "appearance": "Apariencia",
+    "filterPlaceholder": "Filtrar navegador...",
+    "logout": "Cerrar sesión"
+  },
+  "dashboard": {
+    "title": "Panel",
+    "myOpen": "Mis abiertos",
+    "allOpen": "Todos abiertos",
+    "unassigned": "Sin asignar",
+    "breachedSlas": "SLAs incumplidos",
+    "newVsResolved": "Nuevos vs Resueltos — 14 días",
+    "slaCompliance": "Cumplimiento SLA — 30 días",
+    "openByPriority": "Abiertos por prioridad",
+    "topCategories": "Categorías principales — 30 días",
+    "new": "Nuevo",
+    "resolved": "Resuelto",
+    "resolvedOnTime": "{{met}} de {{total}} incidentes resueltos a tiempo",
+    "noResolved": "Sin incidentes resueltos en los últimos 30 días.",
+    "noIncidents": "Sin incidentes en los últimos 30 días."
+  },
+  "incidents": {
+    "number": "Número",
+    "priority": "Prioridad",
+    "state": "Estado",
+    "shortDescription": "Descripción breve",
+    "category": "Categoría",
+    "assignedTo": "Asignado a",
+    "updated": "Actualizado",
+    "noMatch": "Ningún incidente coincide con estos filtros."
+  },
+  "login": {
+    "title": "ITSM",
+    "subtitle": "Inicio de sesión dev — modo auth ficticio",
+    "signInAs": "Iniciar sesión como",
+    "logIn": "Iniciar sesión"
+  },
+  "settings": {
+    "title": "Configuración",
+    "back": "Volver",
+    "appearance": "Apariencia",
+    "theme": "Tema",
+    "light": "Claro",
+    "dark": "Oscuro",
+    "system": "Sistema",
+    "alwaysLight": "Siempre claro",
+    "alwaysDark": "Siempre oscuro",
+    "followOs": "Seguir OS",
+    "interfaceScale": "Escala de interfaz",
+    "scaleHint": "Escala toda la interfaz. Efecto inmediato.",
+    "typeface": "Tipografía",
+    "typefaceHint": "IBM Plex Sans y DM Sans se cargan desde Google Fonts.",
+    "language": "Idioma",
+    "languageHint": "Los cambios se aplican de inmediato."
+  }
+}
