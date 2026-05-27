@@ -185,7 +185,7 @@ export default function IncidentNew() {
                   style={{ borderRadius: 2 }}
                 >
                   <option value="">Me ({me?.name})</option>
-                  {allUsers?.map(u => (
+                  {allUsers?.filter(u => u.id !== me?.user_id).map(u => (
                     <option key={u.id} value={u.id}>{u.name} · {u.role}</option>
                   ))}
                 </select>
