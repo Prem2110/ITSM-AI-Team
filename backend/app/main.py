@@ -2,7 +2,7 @@ from __future__ import annotations
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from .config import env_settings
-from .routers import session, incidents, events, attachments, config, users, dashboard
+from .routers import session, incidents, events, attachments, config, users, dashboard, setup
 
 app = FastAPI(
     title="ITSM API",
@@ -24,6 +24,7 @@ app.include_router(attachments.router)
 app.include_router(config.router)
 app.include_router(users.router)
 app.include_router(dashboard.router)
+app.include_router(setup.router)
 
 
 @app.get("/health")
