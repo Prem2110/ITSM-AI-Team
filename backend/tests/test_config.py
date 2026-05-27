@@ -2,14 +2,15 @@ from __future__ import annotations
 import pytest
 
 
-def test_tbl_empty_prefix_returns_bare_name():
-    """With default empty prefix, tbl() is a no-op."""
-    from app.config import tbl
-    assert tbl("users") == "users"
-    assert tbl("incidents") == "incidents"
-    assert tbl("incident_events") == "incident_events"
-    assert tbl("attachments") == "attachments"
-    assert tbl("INC_SEQ") == "INC_SEQ"
+def test_tbl_empty_prefix_returns_bare_name(monkeypatch):
+    """With empty prefix, tbl() is a no-op."""
+    import app.config as cfg
+    monkeypatch.setattr(cfg.env_settings, "table_prefix", "")
+    assert cfg.tbl("users") == "users"
+    assert cfg.tbl("incidents") == "incidents"
+    assert cfg.tbl("incident_events") == "incident_events"
+    assert cfg.tbl("attachments") == "attachments"
+    assert cfg.tbl("INC_SEQ") == "INC_SEQ"
 
 
 def test_tbl_with_prefix_prepends_exactly(monkeypatch):
@@ -35,9 +36,10 @@ def test_tbl_empty_name_with_prefix(monkeypatch):
     assert cfg.tbl("") == "ITSM_DEV_"
 
 
-def test_tbl_empty_prefix_empty_name():
-    from app.config import tbl
-    assert tbl("") == ""
+def test_tbl_empty_prefix_empty_name(monkeypatch):
+    import app.config as cfg
+    monkeypatch.setattr(cfg.env_settings, "table_prefix", "")
+    assert cfg.tbl("") == ""
 
 
 def test_resolve_url_sqlite_default(monkeypatch):
