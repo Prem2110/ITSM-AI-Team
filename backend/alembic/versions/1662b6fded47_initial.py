@@ -1,18 +1,19 @@
 """initial
 
-Revision ID: 655a7884ea67
+Revision ID: 1662b6fded47
 Revises: 
-Create Date: 2026-05-26 16:41:40.677613
+Create Date: 2026-05-27 05:41:04.386255
 
 """
 from typing import Sequence, Union
 
 from alembic import op
 import sqlalchemy as sa
+from app.config import tbl
 
 
 # revision identifiers, used by Alembic.
-revision: str = '655a7884ea67'
+revision: str = '1662b6fded47'
 down_revision: Union[str, Sequence[str], None] = None
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
@@ -29,7 +30,7 @@ def upgrade() -> None:
     sa.Column('active', sa.Boolean(), nullable=False),
     sa.Column('created_at', sa.DateTime(timezone=True), nullable=False),
     sa.Column('updated_at', sa.DateTime(timezone=True), nullable=False),
-    sa.PrimaryKeyConstraint('id')
+    sa.PrimaryKeyConstraint('id', name=op.f('pk_users'))
     )
     with op.batch_alter_table('users', schema=None) as batch_op:
         batch_op.create_index(batch_op.f('ix_users_email'), ['email'], unique=True)
@@ -53,9 +54,9 @@ def upgrade() -> None:
     sa.Column('updated_at', sa.DateTime(timezone=True), nullable=False),
     sa.Column('resolved_at', sa.DateTime(timezone=True), nullable=True),
     sa.Column('closed_at', sa.DateTime(timezone=True), nullable=True),
-    sa.ForeignKeyConstraint(['assignee_id'], ['users.id'], ),
-    sa.ForeignKeyConstraint(['requester_id'], ['users.id'], ),
-    sa.PrimaryKeyConstraint('id')
+    sa.ForeignKeyConstraint(['assignee_id'], ['users.id'], name=op.f('fk_incidents_assignee_id_users')),
+    sa.ForeignKeyConstraint(['requester_id'], ['users.id'], name=op.f('fk_incidents_requester_id_users')),
+    sa.PrimaryKeyConstraint('id', name=op.f('pk_incidents'))
     )
     with op.batch_alter_table('incidents', schema=None) as batch_op:
         batch_op.create_index(batch_op.f('ix_incidents_assignee_id'), ['assignee_id'], unique=False)
@@ -71,9 +72,9 @@ def upgrade() -> None:
     sa.Column('blob_ref', sa.String(length=1000), nullable=False),
     sa.Column('uploaded_by', sa.String(length=36), nullable=False),
     sa.Column('uploaded_at', sa.DateTime(timezone=True), nullable=False),
-    sa.ForeignKeyConstraint(['incident_id'], ['incidents.id'], ),
-    sa.ForeignKeyConstraint(['uploaded_by'], ['users.id'], ),
-    sa.PrimaryKeyConstraint('id')
+    sa.ForeignKeyConstraint(['incident_id'], ['incidents.id'], name=op.f('fk_attachments_incident_id_incidents')),
+    sa.ForeignKeyConstraint(['uploaded_by'], ['users.id'], name=op.f('fk_attachments_uploaded_by_users')),
+    sa.PrimaryKeyConstraint('id', name=op.f('pk_attachments'))
     )
     with op.batch_alter_table('attachments', schema=None) as batch_op:
         batch_op.create_index(batch_op.f('ix_attachments_incident_id'), ['incident_id'], unique=False)
@@ -87,9 +88,9 @@ def upgrade() -> None:
     sa.Column('body', sa.Text(), nullable=True),
     sa.Column('metadata', sa.JSON(), nullable=True),
     sa.Column('created_at', sa.DateTime(timezone=True), nullable=False),
-    sa.ForeignKeyConstraint(['actor_id'], ['users.id'], ),
-    sa.ForeignKeyConstraint(['incident_id'], ['incidents.id'], ),
-    sa.PrimaryKeyConstraint('id')
+    sa.ForeignKeyConstraint(['actor_id'], ['users.id'], name=op.f('fk_incident_events_actor_id_users')),
+    sa.ForeignKeyConstraint(['incident_id'], ['incidents.id'], name=op.f('fk_incident_events_incident_id_incidents')),
+    sa.PrimaryKeyConstraint('id', name=op.f('pk_incident_events'))
     )
     with op.batch_alter_table('incident_events', schema=None) as batch_op:
         batch_op.create_index('ix_incident_events_incident_created', ['incident_id', 'created_at'], unique=False)
@@ -97,7 +98,7 @@ def upgrade() -> None:
     # HANA-only: create incident number sequence
     bind = op.get_bind()
     if bind.dialect.name == "hana":
-        op.execute("CREATE SEQUENCE ITSM_INC_SEQ START WITH 1 INCREMENT BY 1")
+        op.execute(f"CREATE SEQUENCE {tbl('INC_SEQ')} START WITH 1 INCREMENT BY 1")
     # ### end Alembic commands ###
 
 
@@ -125,5 +126,5 @@ def downgrade() -> None:
     op.drop_table('users')
     bind = op.get_bind()
     if bind.dialect.name == "hana":
-        op.execute("DROP SEQUENCE IF EXISTS ITSM_INC_SEQ")
+        op.execute(f"DROP SEQUENCE IF EXISTS {tbl('INC_SEQ')}")
     # ### end Alembic commands ###
