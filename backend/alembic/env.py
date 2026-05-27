@@ -8,11 +8,8 @@ from sqlalchemy.ext.asyncio import async_engine_from_config
 
 from alembic import context
 
-# Import app config to get DATABASE_URL
-from app.config import env_settings
-
 # Import Base and ALL models so they register with Base.metadata before autogenerate
-from app.db import Base
+from app.db import Base, resolve_database_url, _db_url
 import app.models  # noqa: F401 — registers User, Incident, IncidentEvent, Attachment
 
 config = context.config
@@ -21,9 +18,12 @@ if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
 # Override the URL from the app's env settings so migrations always use the same DB
-config.set_main_option("sqlalchemy.url", env_settings.database_url)
+_resolved_url = resolve_database_url()
+config.set_main_option("sqlalchemy.url", _resolved_url)
 
 target_metadata = Base.metadata
+
+_is_sqlite = "sqlite" in _resolved_url
 
 
 def run_migrations_offline() -> None:
@@ -33,7 +33,7 @@ def run_migrations_offline() -> None:
         target_metadata=target_metadata,
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},
-        render_as_batch=True,
+        render_as_batch=_is_sqlite,
     )
     with context.begin_transaction():
         context.run_migrations()
@@ -43,18 +43,32 @@ def do_run_migrations(connection: Connection) -> None:
     context.configure(
         connection=connection,
         target_metadata=target_metadata,
-        render_as_batch=True,
+        render_as_batch=_is_sqlite,
     )
     with context.begin_transaction():
         context.run_migrations()
 
 
 async def run_async_migrations() -> None:
-    connectable = async_engine_from_config(
-        config.get_section(config.config_ini_section, {}),
-        prefix="sqlalchemy.",
-        poolclass=pool.NullPool,
-    )
+    if "hana" in _db_url or "hdbcli" in _db_url:
+        from sqlalchemy import create_engine, NullPool
+        from sqlalchemy.ext.asyncio import AsyncEngine
+        from app.config import env_settings
+        schema = env_settings.hana_schema
+        connect_args = {
+            "encrypt": env_settings.hana_encrypt,
+            "sslValidateCertificate": env_settings.hana_ssl_validate,
+        }
+        if schema:
+            connect_args["CURRENTSCHEMA"] = schema
+        sync_engine = create_engine(_db_url, poolclass=NullPool, connect_args=connect_args)
+        connectable = AsyncEngine(sync_engine)
+    else:
+        connectable = async_engine_from_config(
+            config.get_section(config.config_ini_section, {}),
+            prefix="sqlalchemy.",
+            poolclass=pool.NullPool,
+        )
     async with connectable.connect() as connection:
         await connection.run_sync(do_run_migrations)
     await connectable.dispose()

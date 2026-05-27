@@ -45,7 +45,10 @@ class AppConfig(BaseModel):
 
 class EnvSettings(BaseSettings):
     model_config = SettingsConfigDict(
-        env_file=str(Path(__file__).parent.parent / ".env"),
+        env_file=[
+            str(Path(__file__).parent.parent / ".env"),
+            str(Path(__file__).parent.parent / ".env.hana"),
+        ],
         extra="ignore",
     )
 
@@ -57,6 +60,17 @@ class EnvSettings(BaseSettings):
     xsuaa_xsappname: str = ""
     cors_origins: list[str] = ["*"]
     table_prefix: str = ""
+
+    # HANA connection vars (read from .env or .env.hana)
+    hana_address: str = ""
+    hana_port: int = 0
+    hana_user: str = ""
+    hana_password: str = ""
+    hana_schema: str = ""
+    hana_encrypt: bool = True
+    hana_ssl_validate: bool = False
+    # Test mode — when True, tests use HANA instead of SQLite
+    hana_test: bool = False
 
 
 def _load_yaml_config() -> AppConfig:

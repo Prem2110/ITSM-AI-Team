@@ -38,3 +38,28 @@ def test_tbl_empty_name_with_prefix(monkeypatch):
 def test_tbl_empty_prefix_empty_name():
     from app.config import tbl
     assert tbl("") == ""
+
+
+def test_resolve_url_sqlite_default(monkeypatch):
+    """When no HANA vars set, returns the DATABASE_URL (SQLite default)."""
+    monkeypatch.setenv("VCAP_SERVICES", "")
+    import app.config as cfg
+    monkeypatch.setattr(cfg.env_settings, "hana_address", "")
+    from app.db import resolve_database_url
+    url = resolve_database_url()
+    assert "sqlite" in url
+
+
+def test_resolve_url_hana_env_vars(monkeypatch):
+    """When HANA_* vars are set, returns a hana+hdbcli:// URL."""
+    monkeypatch.setenv("VCAP_SERVICES", "")
+    import app.config as cfg
+    monkeypatch.setattr(cfg.env_settings, "hana_address", "myhost.hana.cloud")
+    monkeypatch.setattr(cfg.env_settings, "hana_port", 443)
+    monkeypatch.setattr(cfg.env_settings, "hana_user", "MYUSER")
+    monkeypatch.setattr(cfg.env_settings, "hana_password", "MYPASS")
+    from app.db import resolve_database_url
+    url = resolve_database_url()
+    assert url.startswith("hana+hdbcli://")
+    assert "myhost.hana.cloud" in url
+    assert "443" in url
