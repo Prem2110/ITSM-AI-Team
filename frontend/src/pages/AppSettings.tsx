@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
-import { ChevronLeft, X, Plus } from 'lucide-react'
+import { ChevronLeft, X, Plus, Loader2 } from 'lucide-react'
 import { useAppSettings } from '@/hooks/useAppSettings'
 import { patchAppSettings } from '@/api/setup'
 import { useMe } from '@/hooks/useMe'
@@ -57,9 +57,10 @@ function SaveButton({
     <button
       onClick={onClick}
       disabled={disabled || isSaving}
-      className="border border-surface-200 text-xs px-3 py-1.5 text-surface-700 hover:bg-surface-50 disabled:opacity-40 transition-colors"
+      className="flex items-center gap-1.5 border border-surface-200 text-xs px-3 py-1.5 text-surface-700 hover:bg-surface-50 disabled:opacity-40 transition-colors"
       style={{ borderRadius: 2 }}
     >
+      {isSaving && <Loader2 size={11} className="animate-spin flex-none" />}
       {isSaving ? 'Saving…' : isSaved ? 'Saved ✓' : 'Save'}
     </button>
   )

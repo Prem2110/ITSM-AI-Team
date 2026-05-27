@@ -9,3 +9,8 @@ export function useAppSettings() {
     retry: false,
   })
 }
+
+export function useResolutionCodes(): string[] {
+  const { data } = useAppSettings()
+  return data?.resolution_codes ?? []
+}

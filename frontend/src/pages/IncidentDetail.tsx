@@ -1,26 +1,15 @@
 import { useState, useMemo } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { ChevronLeft, AlertTriangle, ChevronDown } from 'lucide-react'
-import { useIncident, useMe, useUsers, usePriorities, useCategories, useStates } from '@/hooks'
+import { ChevronLeft, AlertTriangle, ChevronDown, Loader2 } from 'lucide-react'
+import { useIncident, useMe, useUsers, usePriorities, useCategories, useStates, useResolutionCodes } from '@/hooks'
 import { patchIncident, transitionIncident } from '@/api/incidents'
 import { createEvent } from '@/api/events'
 import { StateBadge } from '@/components/StateBadge'
 import { PriorityBadge } from '@/components/PriorityBadge'
+import { SpinButton } from '@/components/SpinButton'
 import { relativeTime } from '@/utils/relativeTime'
 import type { IncidentEvent } from '@/types'
-
-const RESOLUTION_CODES = [
-  { value: 'hardware_replaced', label: 'Hardware Replaced' },
-  { value: 'software_update', label: 'Software Update' },
-  { value: 'configuration_change', label: 'Configuration Change' },
-  { value: 'account_reset', label: 'Account / Password Reset' },
-  { value: 'access_granted', label: 'Access Granted' },
-  { value: 'user_education', label: 'User Education' },
-  { value: 'workaround', label: 'Workaround Applied' },
-  { value: 'no_fault_found', label: 'No Fault Found' },
-  { value: 'duplicate', label: 'Duplicate' },
-]
 
 function FieldSection({ label, children }: { label: string; children: React.ReactNode }) {
   return (
@@ -176,6 +165,7 @@ export default function IncidentDetail() {
   const { data: priorities } = usePriorities()
   const { data: categories } = useCategories()
   const { data: statesConfig } = useStates()
+  const resolutionCodes = useResolutionCodes()
 
   const isAgent = me?.scopes?.includes('Agent') ?? false
   const { data: allUsers } = useUsers(undefined, isAgent)
@@ -371,8 +361,10 @@ export default function IncidentDetail() {
                 className="flex items-center gap-1 text-xs border border-surface-200 px-2 py-0.5 hover:bg-surface-50 text-surface-600 hover:text-surface-800 transition-colors disabled:opacity-50"
                 style={{ borderRadius: 2 }}
               >
-                {transitionMut.isPending ? 'Saving…' : 'Transition'}
-                <ChevronDown size={11} />
+                {transitionMut.isPending
+                  ? <><Loader2 size={11} className="animate-spin flex-none" />Saving…</>
+                  : <>Transition<ChevronDown size={11} /></>
+                }
               </button>
               {transitionOpen && (
                 <>
@@ -398,14 +390,14 @@ export default function IncidentDetail() {
 
           {/* Requester "close" button */}
           {canClose && (
-            <button
+            <SpinButton
               onClick={() => transitionMut.mutate({ to_state: 'closed' })}
-              disabled={transitionMut.isPending}
+              isLoading={transitionMut.isPending}
               className="text-xs border border-surface-200 px-2 py-0.5 hover:bg-surface-50 text-surface-600 hover:text-surface-800 transition-colors disabled:opacity-50"
               style={{ borderRadius: 2 }}
             >
               {transitionMut.isPending ? 'Closing…' : 'Close Incident'}
-            </button>
+            </SpinButton>
           )}
         </div>
       </div>
@@ -423,8 +415,8 @@ export default function IncidentDetail() {
                 style={{ borderRadius: 2 }}
               >
                 <option value="">Select resolution code…</option>
-                {RESOLUTION_CODES.map(rc => (
-                  <option key={rc.value} value={rc.value}>{rc.label}</option>
+                {resolutionCodes.map(code => (
+                  <option key={code} value={code}>{code}</option>
                 ))}
               </select>
             </div>
@@ -440,14 +432,15 @@ export default function IncidentDetail() {
               />
             </div>
             <div className="flex flex-col gap-1.5 pt-5 flex-none">
-              <button
+              <SpinButton
                 onClick={handleResolve}
-                disabled={!resCode || !resNotes.trim() || transitionMut.isPending}
+                disabled={!resCode || !resNotes.trim()}
+                isLoading={transitionMut.isPending}
                 className="text-xs font-medium px-3 py-1 bg-surface-800 text-white hover:bg-surface-700 disabled:opacity-40 transition-colors"
                 style={{ borderRadius: 2 }}
               >
-                {transitionMut.isPending ? 'Saving…' : 'Mark Resolved'}
-              </button>
+                {transitionMut.isPending ? 'Resolving…' : 'Mark Resolved'}
+              </SpinButton>
               <button
                 onClick={() => { setShowResForm(false); setResCode(''); setResNotes('') }}
                 className="text-xs text-surface-500 hover:text-surface-700 text-center"
@@ -482,14 +475,14 @@ export default function IncidentDetail() {
                   style={{ borderRadius: 2 }}
                 />
                 <div className="flex gap-2 mt-2">
-                  <button
+                  <SpinButton
                     onClick={saveDesc}
-                    disabled={patchMut.isPending}
+                    isLoading={patchMut.isPending}
                     className="text-xs font-medium px-3 py-1 bg-surface-800 text-white hover:bg-surface-700 disabled:opacity-40"
                     style={{ borderRadius: 2 }}
                   >
-                    Save
-                  </button>
+                    {patchMut.isPending ? 'Saving…' : 'Save'}
+                  </SpinButton>
                   <button
                     onClick={() => setEditDesc(false)}
                     className="text-xs text-surface-500 hover:text-surface-700"
@@ -562,14 +555,15 @@ export default function IncidentDetail() {
                 style={{ height: commentFocused ? 120 : 56, resize: 'none', padding: 8, borderRadius: 2 }}
               />
               <div className="flex justify-end mt-1.5">
-                <button
+                <SpinButton
                   onClick={submitComment}
-                  disabled={!commentText.trim() || commentMut.isPending}
+                  disabled={!commentText.trim()}
+                  isLoading={commentMut.isPending}
                   className="text-xs font-medium bg-surface-700 text-white hover:bg-surface-800 disabled:opacity-40 transition-colors"
                   style={{ height: 28, padding: '0 8px', borderRadius: 2 }}
                 >
                   {commentMut.isPending ? 'Posting…' : 'Post'}
-                </button>
+                </SpinButton>
               </div>
             </div>
           )}
@@ -686,9 +680,7 @@ export default function IncidentDetail() {
             <>
               <div className="border-t border-surface-200 my-2" />
               <FieldSection label="Resolution Code">
-                <span className="text-surface-800">
-                  {RESOLUTION_CODES.find(r => r.value === incident.resolution_code)?.label ?? incident.resolution_code}
-                </span>
+                <span className="text-surface-800">{incident.resolution_code}</span>
               </FieldSection>
               {incident.resolution_notes && (
                 <FieldSection label="Resolution Notes">

@@ -4,6 +4,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { ChevronLeft } from 'lucide-react'
 import { useMe, usePriorities, useCategories, useUsers } from '@/hooks'
 import { createIncident } from '@/api/incidents'
+import { SpinButton } from '@/components/SpinButton'
 import type { IncidentCreateRequest } from '@/types'
 
 export default function IncidentNew() {
@@ -209,14 +210,15 @@ export default function IncidentNew() {
 
           {/* Actions */}
           <div className="flex items-center gap-3 pt-1">
-            <button
+            <SpinButton
               type="submit"
               disabled={!canSubmit}
+              isLoading={createMut.isPending}
               className="text-xs font-medium px-4 py-1.5 bg-surface-800 text-white hover:bg-surface-700 disabled:opacity-40 transition-colors"
               style={{ borderRadius: 2 }}
             >
               {createMut.isPending ? 'Creating…' : 'Create Incident'}
-            </button>
+            </SpinButton>
             <button
               type="button"
               onClick={() => navigate('/incidents')}

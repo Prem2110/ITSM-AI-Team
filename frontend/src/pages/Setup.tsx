@@ -4,7 +4,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import { completeSetup } from '@/api/setup'
 import client from '@/api/client'
 import { setFakeUser } from '@/api/auth'
-import { ChevronRight, ChevronLeft, Check, X, Plus } from 'lucide-react'
+import { ChevronRight, ChevronLeft, Check, X, Plus, Loader2 } from 'lucide-react'
 import { PriorityBadge } from '@/components/PriorityBadge'
 import type { Priority } from '@/types'
 
@@ -472,8 +472,10 @@ export default function Setup() {
               className="flex items-center gap-1 bg-surface-800 text-white text-xs font-medium px-3 py-1.5 hover:bg-surface-700 disabled:opacity-40 transition-colors"
               style={{ borderRadius: 2 }}
             >
-              {submitting ? 'Setting up…' : 'Complete Setup'}
-              {!submitting && <Check size={14} />}
+              {submitting
+                ? <><Loader2 size={13} className="animate-spin flex-none" />Setting up…</>
+                : <>Complete Setup<Check size={14} /></>
+              }
             </button>
           )}
         </div>
