@@ -137,6 +137,11 @@ def _drop_hana_test_tables(engine) -> None:
         )).scalar()
         if seq_exists:
             conn.execute(_text(f'DROP SEQUENCE "{seq_name}"'))
+        # Drop ALEMBIC_VERSION so subsequent `alembic upgrade head` re-runs all migrations
+        for vtbl in ("ALEMBIC_VERSION", "alembic_version"):
+            if vtbl.lower() in existing:
+                conn.execute(_text(f'DROP TABLE {vtbl}'))
+                break
         conn.commit()
 
 

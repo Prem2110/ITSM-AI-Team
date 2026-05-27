@@ -1,42 +1,66 @@
-"""One-time cleanup of failed migration state from HANA. DELETE AFTER USE."""
-import os
-from dotenv import load_dotenv
-from hdbcli import dbapi
+"""Drop all ITSM tables and ALEMBIC_VERSION from HANA, then run migrations fresh.
 
+Usage:
+    uv run python scripts/cleanup_hana.py
+    uv run alembic upgrade head
+"""
+import os
+import sys
+sys.path.insert(0, ".")
+
+from dotenv import load_dotenv
 load_dotenv(".env.hana")
 
-conn = dbapi.connect(
-    address=os.environ["HANA_ADDRESS"],
-    port=int(os.environ["HANA_PORT"]),
-    user=os.environ["HANA_USER"],
-    password=os.environ["HANA_PASSWORD"],
-    encrypt=True,
-)
-cur = conn.cursor()
+from app.db import resolve_database_url, _hana_connect_args
+from sqlalchemy import create_engine, text
 
-# Drop alembic_version if it exists from the failed run
-try:
-    cur.execute('DROP TABLE "alembic_version"')
-    print("Dropped alembic_version")
-except Exception as e:
-    print(f"alembic_version drop skipped: {e}")
+url = resolve_database_url()
+if "hana" not in url and "hdbcli" not in url:
+    print("Not a HANA database — aborting (check .env.hana)")
+    sys.exit(1)
 
-# Drop any ITSMAI_* tables that may have been partially created
+engine = create_engine(url, connect_args=_hana_connect_args())
 prefix = os.environ.get("TABLE_PREFIX", "ITSMAI_")
-for table in ["users", "incidents", "incident_events", "attachments"]:
-    name = prefix + table
-    try:
-        cur.execute(f'DROP TABLE "{name}"')
-        print(f"Dropped {name}")
-    except Exception as e:
-        print(f"{name} drop skipped: {e}")
 
-# Drop the sequence
-try:
-    cur.execute(f'DROP SEQUENCE "{prefix}INC_SEQ"')
-    print(f"Dropped {prefix}INC_SEQ")
-except Exception as e:
-    print(f"{prefix}INC_SEQ drop skipped: {e}")
+TABLES = [
+    f"{prefix}app_settings",
+    f"{prefix}incident_events",
+    f"{prefix}attachments",
+    f"{prefix}incidents",
+    f"{prefix}users",
+]
 
-conn.commit()
-print("Cleanup complete.")
+SEQUENCES = [f"{prefix}INC_SEQ"]
+
+VERSION_TABLES = ["ALEMBIC_VERSION", "alembic_version"]
+
+with engine.connect() as conn:
+    for tname in TABLES:
+        try:
+            conn.execute(text(f'DROP TABLE "{tname}"'))
+            conn.commit()
+            print(f"Dropped table {tname}")
+        except Exception as e:
+            conn.rollback()
+            print(f"Skip {tname}: {e}")
+
+    for seq in SEQUENCES:
+        try:
+            conn.execute(text(f'DROP SEQUENCE "{seq}"'))
+            conn.commit()
+            print(f"Dropped sequence {seq}")
+        except Exception as e:
+            conn.rollback()
+            print(f"Skip sequence {seq}: {e}")
+
+    for vtbl in VERSION_TABLES:
+        try:
+            conn.execute(text(f'DROP TABLE {vtbl}'))
+            conn.commit()
+            print(f"Dropped {vtbl}")
+            break
+        except Exception as e:
+            conn.rollback()
+            print(f"Skip {vtbl}: {e}")
+
+print("\nCleanup complete. Now run: uv run alembic upgrade head")
