@@ -5,12 +5,8 @@ import { completeSetup } from '@/api/setup'
 import client from '@/api/client'
 import { setFakeUser } from '@/api/auth'
 import { ChevronRight, ChevronLeft, Check, X, Plus } from 'lucide-react'
-
-interface Priority {
-  level: number
-  name: string
-  sla_hours: number
-}
+import { PriorityBadge } from '@/components/PriorityBadge'
+import type { Priority } from '@/types'
 
 const DEFAULT_RESOLUTION_CODES = [
   'Fixed',
@@ -324,13 +320,10 @@ export default function Setup() {
                   </tr>
                 </thead>
                 <tbody>
-                  {[1, 2, 3, 4].map((level) => {
-                    const p = priorities.find((x) => x.level === level)
-                    return (
+                  {[1, 2, 3, 4].map((level) => (
                       <tr key={level} className="border-b border-surface-100">
-                        <td className="py-2 text-surface-700">
-                          P{level}
-                          {p ? ` – ${p.name}` : ''}
+                        <td className="py-2">
+                          <PriorityBadge priority={level} priorities={priorities} />
                         </td>
                         <td className="py-2 flex justify-end">
                           <input
@@ -351,8 +344,7 @@ export default function Setup() {
                           />
                         </td>
                       </tr>
-                    )
-                  })}
+                  ))}
                 </tbody>
               </table>
             </div>
@@ -421,20 +413,14 @@ export default function Setup() {
                   <div className="text-2xs font-semibold text-surface-400 uppercase tracking-widest mb-2">
                     SLA Targets
                   </div>
-                  {[1, 2, 3, 4].map((level) => {
-                    const p = priorities.find((x) => x.level === level)
-                    return (
-                      <div key={level} className="flex justify-between py-0.5">
-                        <span className="text-surface-500">
-                          P{level}
-                          {p ? ` – ${p.name}` : ''}
-                        </span>
+                  {[1, 2, 3, 4].map((level) => (
+                      <div key={level} className="flex justify-between items-center py-0.5">
+                        <PriorityBadge priority={level} priorities={priorities} />
                         <span className="text-surface-700 font-medium">
                           {form.slaTargets[String(level)]}h
                         </span>
                       </div>
-                    )
-                  })}
+                  ))}
                 </div>
                 <div className="border-t border-surface-100 pt-3 mt-3">
                   <div className="text-2xs font-semibold text-surface-400 uppercase tracking-widest mb-2">

@@ -5,6 +5,8 @@ import { ChevronLeft, X, Plus } from 'lucide-react'
 import { useAppSettings } from '@/hooks/useAppSettings'
 import { patchAppSettings } from '@/api/setup'
 import { useMe } from '@/hooks/useMe'
+import { usePriorities } from '@/hooks'
+import { PriorityBadge } from '@/components/PriorityBadge'
 
 // ─── timezones ────────────────────────────────────────────────────────────────
 
@@ -80,6 +82,7 @@ export default function AppSettings() {
   const qc = useQueryClient()
   const { data: me } = useMe()
   const { data: settings, isLoading } = useAppSettings()
+  const { data: priorities = [] } = usePriorities()
   const isAdmin = me?.scopes?.includes('Admin') ?? false
 
   const [companyName, setCompanyName] = useState('')
@@ -254,7 +257,9 @@ export default function AppSettings() {
                   <tbody>
                     {[1, 2, 3, 4].map((level) => (
                       <tr key={level} className="border-b border-surface-100">
-                        <td className="py-2 text-surface-700">P{level}</td>
+                        <td className="py-2">
+                          <PriorityBadge priority={level} priorities={priorities} />
+                        </td>
                         <td className="py-2 flex justify-end">
                           <input
                             type="number"
