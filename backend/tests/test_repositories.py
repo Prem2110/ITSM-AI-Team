@@ -286,6 +286,42 @@ async def test_attachment_repo_delete(db_session):
     assert await repo.get_by_id(att.id) is None
 
 
+async def test_event_metadata_round_trip(db_session):
+    """Verify JSONText round-trips dict through the DB as a dict, not a string."""
+    from app.models.user import User
+    from app.models.incident import Incident
+    from app.models.incident_event import IncidentEvent
+
+    user = User(id=str(uuid.uuid4()), email="meta@test.com", name="Meta User", role="agent")
+    db_session.add(user)
+    await db_session.flush()
+
+    inc = Incident(
+        id=str(uuid.uuid4()), number="INC9999999",
+        title="T", description="D", state="new",
+        priority=1, category="Test", source="web",
+        requester_id=user.id,
+    )
+    db_session.add(inc)
+    await db_session.flush()
+
+    meta = {"from_state": "new", "to_state": "assigned"}
+    ev = IncidentEvent(
+        id=str(uuid.uuid4()),
+        incident_id=inc.id,
+        actor_id=user.id,
+        event_type="state_change",
+        body="moved",
+        event_metadata=meta,
+    )
+    db_session.add(ev)
+    await db_session.flush()
+    await db_session.refresh(ev)
+
+    assert ev.event_metadata == meta
+    assert isinstance(ev.event_metadata, dict)
+
+
 async def test_dashboard_summary(db_session):
     user = await UserRepository(db_session).create(UserCreate(email="u6@t.com", name="U6", role="agent"))
     await db_session.flush()

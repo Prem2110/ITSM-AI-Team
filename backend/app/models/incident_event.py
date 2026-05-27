@@ -1,11 +1,12 @@
 from __future__ import annotations
 import uuid
 from datetime import datetime
-from sqlalchemy import String, DateTime, Text, ForeignKey, JSON, Index
+from sqlalchemy import String, DateTime, Text, ForeignKey, Index
 from sqlalchemy.orm import Mapped, mapped_column
 from ..db import Base
 from ..config import tbl
 from ..utils import utcnow
+from ..types import JSONText
 
 
 class IncidentEvent(Base):
@@ -19,5 +20,5 @@ class IncidentEvent(Base):
     actor_id: Mapped[str] = mapped_column(String(36), ForeignKey(tbl("users") + ".id"), nullable=False)
     event_type: Mapped[str] = mapped_column(String(50), nullable=False)
     body: Mapped[str | None] = mapped_column(Text, nullable=True)
-    event_metadata: Mapped[dict | None] = mapped_column("metadata", JSON, nullable=True)
+    event_metadata: Mapped[dict | None] = mapped_column("metadata", JSONText, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, nullable=False)
