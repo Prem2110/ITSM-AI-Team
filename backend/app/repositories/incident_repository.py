@@ -19,7 +19,11 @@ _INCIDENT_UPDATABLE = frozenset({
 _CLOSED_STATES = frozenset({"resolved", "closed"})
 
 
-def _sla_due(priority: int, created_at: datetime) -> datetime:
+def _sla_due(priority: int, created_at: datetime, sla_targets: dict | None = None) -> datetime:
+    if sla_targets is not None:
+        hours_val = sla_targets.get(str(priority))
+        if hours_val is not None:
+            return created_at + timedelta(hours=int(hours_val))
     hours = app_config.priorities[priority - 1].sla_hours
     return created_at + timedelta(hours=hours)
 
@@ -28,7 +32,7 @@ class IncidentRepository:
     def __init__(self, session: AsyncSession) -> None:
         self.session = session
 
-    async def create(self, data: IncidentCreate) -> Incident:
+    async def create(self, data: IncidentCreate, sla_targets: dict | None = None) -> Incident:
         now = utcnow()
         number = await next_incident_number(self.session)
         incident = Incident(
@@ -42,7 +46,7 @@ class IncidentRepository:
             source=data.source,
             requester_id=data.requester_id,
             assignee_id=data.assignee_id,
-            sla_resolution_due=_sla_due(data.priority, now),
+            sla_resolution_due=_sla_due(data.priority, now, sla_targets),
             sla_breached=False,
             created_at=now,
             updated_at=now,

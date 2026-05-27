@@ -224,14 +224,14 @@ async def test_transition_to_resolved_with_resolution_fields(client, test_db):
 
     resp = await client.post(
         f"/api/incidents/{inc['id']}/transition",
-        json={"to_state": "resolved", "resolution_code": "fixed", "resolution_notes": "All done"},
+        json={"to_state": "resolved", "resolution_code": "Fixed", "resolution_notes": "All done"},
         headers=AGENT_H,
     )
     assert resp.status_code == 200
     data = resp.json()
     assert data["state"] == "resolved"
     assert data["resolved_at"] is not None
-    assert data["resolution_code"] == "fixed"
+    assert data["resolution_code"] == "Fixed"
 
 
 async def test_requester_can_close_own_resolved_ticket(client, test_db):

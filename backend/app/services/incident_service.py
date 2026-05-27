@@ -4,6 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ..repositories.incident_repository import IncidentRepository, _sla_due
 from ..repositories.incident_event_repository import IncidentEventRepository
 from ..repositories.user_repository import UserRepository
+from ..repositories.app_settings_repository import AppSettingsRepository
 from ..schemas.incident import (
     IncidentCreate, IncidentCreateRequest, IncidentPatchRequest,
     TransitionRequest, IncidentDetail,
@@ -15,6 +16,10 @@ from ..state_machine import validate_transition
 from ..utils import utcnow
 from ..auth.context import CallerContext
 
+_DEFAULT_RESOLUTION_CODES = [
+    "Fixed", "Workaround", "No Fault Found", "User Error", "Duplicate", "Cannot Reproduce"
+]
+
 
 class IncidentService:
     def __init__(self, session: AsyncSession) -> None:
@@ -23,7 +28,12 @@ class IncidentService:
         self._evt = IncidentEventRepository(session)
         self._usr = UserRepository(session)
 
+    async def _get_sla_targets(self) -> dict | None:
+        settings = await AppSettingsRepository(self.session).get()
+        return settings.sla_targets if settings else None
+
     async def create_incident(self, req: IncidentCreateRequest, caller: CallerContext):
+        sla_targets = await self._get_sla_targets()
         requester_id = req.requester_id or caller.user_id
         create_data = IncidentCreate(
             title=req.title,
@@ -34,7 +44,7 @@ class IncidentService:
             requester_id=requester_id,
             assignee_id=req.assignee_id,
         )
-        incident = await self._inc.create(create_data)
+        incident = await self._inc.create(create_data, sla_targets)
         await self._evt.create(IncidentEventCreate(
             incident_id=incident.id,
             actor_id=caller.user_id,
@@ -65,7 +75,8 @@ class IncidentService:
             return incident
 
         if "priority" in changed:
-            fields["sla_resolution_due"] = _sla_due(fields["priority"], incident.created_at)
+            sla_targets = await self._get_sla_targets()
+            fields["sla_resolution_due"] = _sla_due(fields["priority"], incident.created_at, sla_targets)
 
         fields["updated_at"] = utcnow()
         await self._inc.update(incident_id, fields)
@@ -120,6 +131,20 @@ class IncidentService:
             validate_transition(incident.state, req.to_state, merged)
         except ValueError as exc:
             raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+        if req.to_state == "resolved":
+            settings = await AppSettingsRepository(self.session).get()
+            allowed_codes = (
+                settings.resolution_codes
+                if settings and settings.resolution_codes
+                else _DEFAULT_RESOLUTION_CODES
+            )
+            code = merged.get("resolution_code", "")
+            if code not in allowed_codes:
+                raise HTTPException(
+                    status_code=422,
+                    detail=f"resolution_code must be one of: {', '.join(allowed_codes)}",
+                )
 
         from_state = incident.state
         now = utcnow()
