@@ -166,7 +166,7 @@ export default function Layout() {
 
         {/* Main content — NO padding here, pages handle their own */}
         <main className="flex-1 overflow-hidden bg-white flex flex-col">
-          <div key={location.key} className="animate-page-enter flex-1 flex flex-col overflow-hidden">
+          <div key={location.pathname} className="animate-page-enter flex-1 flex flex-col overflow-hidden">
             <Outlet />
           </div>
         </main>
