@@ -1,4 +1,5 @@
 from __future__ import annotations
+import logging
 from fastapi import HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from ..repositories.incident_repository import IncidentRepository, _sla_due
@@ -15,6 +16,8 @@ from ..schemas.incident_event import IncidentEventResponse
 from ..state_machine import validate_transition
 from ..utils import utcnow
 from ..auth.context import CallerContext
+
+logger = logging.getLogger(__name__)
 
 _DEFAULT_RESOLUTION_CODES = [
     "Fixed", "Workaround", "No Fault Found", "User Error", "Duplicate", "Cannot Reproduce"
@@ -45,6 +48,10 @@ class IncidentService:
             assignee_id=req.assignee_id,
         )
         incident = await self._inc.create(create_data, sla_targets)
+        logger.info(
+            "incident.created id=%s number=%s priority=%d category=%s caller=%s",
+            incident.id, incident.number, incident.priority, incident.category, caller.email,
+        )
         await self._evt.create(IncidentEventCreate(
             incident_id=incident.id,
             actor_id=caller.user_id,
@@ -73,6 +80,11 @@ class IncidentService:
 
         if not changed:
             return incident
+
+        logger.info(
+            "incident.updated id=%s fields=%s caller=%s",
+            incident_id, list(changed.keys()), caller.email,
+        )
 
         if "priority" in changed:
             sla_targets = await self._get_sla_targets()
@@ -106,11 +118,19 @@ class IncidentService:
         is_agent = "Agent" in caller.scopes
         if not is_agent:
             if (incident.state, req.to_state) != ("resolved", "closed"):
+                logger.warning(
+                    "incident.transition denied id=%s %s->%s caller=%s (not agent)",
+                    incident_id, incident.state, req.to_state, caller.email,
+                )
                 raise HTTPException(
                     status_code=403,
                     detail="Requesters may only close a resolved ticket.",
                 )
             if incident.requester_id != caller.user_id:
+                logger.warning(
+                    "incident.transition denied id=%s caller=%s (not requester)",
+                    incident_id, caller.email,
+                )
                 raise HTTPException(
                     status_code=403,
                     detail="You can only close your own tickets.",
@@ -130,6 +150,10 @@ class IncidentService:
         try:
             validate_transition(incident.state, req.to_state, merged)
         except ValueError as exc:
+            logger.warning(
+                "incident.transition invalid id=%s %s->%s — %s",
+                incident_id, incident.state, req.to_state, exc,
+            )
             raise HTTPException(status_code=422, detail=str(exc)) from exc
 
         if req.to_state == "resolved":
@@ -147,6 +171,10 @@ class IncidentService:
                 )
 
         from_state = incident.state
+        logger.info(
+            "incident.transition id=%s %s->%s caller=%s resolution_code=%s",
+            incident_id, from_state, req.to_state, caller.email, merged.get("resolution_code"),
+        )
         now = utcnow()
         update_fields: dict = {"state": req.to_state, "updated_at": now}
         if req.resolution_code:
@@ -224,6 +252,10 @@ class IncidentService:
         due_naive = due.replace(tzinfo=None) if due.tzinfo is not None else due
         now_naive = now.replace(tzinfo=None) if now.tzinfo is not None else now
         if due_naive < now_naive:
+            logger.warning(
+                "incident.sla_breached id=%s number=%s due=%s",
+                incident.id, incident.number, due,
+            )
             await self._inc.update(incident.id, {
                 "sla_breached": True,
                 "updated_at": utcnow(),

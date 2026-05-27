@@ -62,6 +62,7 @@ async def get_caller_xsuaa(
             },
         )
     except Exception as exc:
+        logger.warning("auth.xsuaa: token validation failed — %s", exc)
         raise HTTPException(status_code=401, detail=f"Invalid token: {exc}") from exc
 
     email: str = (sc.get_email() or sc.get_logon_name() or "").lower()
@@ -70,8 +71,10 @@ async def get_caller_xsuaa(
     repo = UserRepository(session)
     user = await repo.get_by_email(email)
     if user is None:
+        logger.info("auth.xsuaa: auto-provisioning new user email=%r", email)
         user = await repo.create(UserCreate(email=email, name=name, role="requester"))
 
     token_info = getattr(sc, "token_info", {}) or {}
     scopes = _scopes_from_token(token_info)
+    logger.debug("auth.xsuaa: authenticated email=%r scopes=%s", user.email, scopes)
     return CallerContext(user_id=user.id, email=user.email, name=user.name, scopes=scopes)

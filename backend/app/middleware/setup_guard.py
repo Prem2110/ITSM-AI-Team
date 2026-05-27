@@ -1,9 +1,12 @@
 from __future__ import annotations
+import logging
 from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
 from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
 from ..db import get_db, AsyncSessionLocal
 from ..repositories.app_settings_repository import AppSettingsRepository
+
+logger = logging.getLogger(__name__)
 
 _ALLOWED_PREFIXES = ("/api/setup/", "/api/config/", "/api/health", "/health")
 
@@ -38,14 +41,17 @@ class SetupGuardMiddleware(BaseHTTPMiddleware):
                 async with AsyncSessionLocal() as session:
                     configured = await AppSettingsRepository(session).get() is not None
             except Exception:
+                logger.exception("setup_guard: DB check failed — blocking request")
                 configured = False
             if configured:
+                logger.info("setup_guard: setup confirmed — caching and opening all routes")
                 self._done = True
 
         if configured:
             return await call_next(request)
 
         if path.startswith("/api/"):
+            logger.debug("setup_guard: blocked %s (setup not complete)", path)
             return JSONResponse(
                 status_code=503,
                 content={"detail": "Setup required", "redirect": "/setup"},
