@@ -1,8 +1,9 @@
 import { Link, Outlet, useLocation } from 'react-router-dom'
 import { useState } from 'react'
-import { Settings } from 'lucide-react'
+import { Settings, Palette } from 'lucide-react'
 import { clearFakeUser, getFakeUser } from '@/api/auth'
 import { useNavigate } from 'react-router-dom'
+import { useSetupStatus } from '@/hooks/useSetupStatus'
 
 interface NavItem {
   label: string
@@ -54,6 +55,7 @@ export default function Layout() {
   const location = useLocation()
   const email = getFakeUser() ?? ''
   const [navFilter, setNavFilter] = useState('')
+  const { data: setupStatus } = useSetupStatus()
 
   function handleLogout() {
     clearFakeUser()
@@ -83,7 +85,7 @@ export default function Layout() {
         style={{ height: 44 }}
       >
         <Link to="/incidents" className="text-sm font-bold text-surface-800 tracking-tight" style={{ textDecoration: 'none' }}>
-          ITSM
+          {setupStatus?.company_name ?? 'ITSM'}
         </Link>
         <div className="flex items-center gap-3">
           <span className="text-xs text-surface-500">{email}</span>
@@ -160,6 +162,18 @@ export default function Layout() {
               >
                 <Settings size={12} className="flex-none" />
                 Settings
+              </Link>
+              <Link
+                to="/settings/appearance"
+                className={`flex items-center gap-2 px-3 text-xs transition-colors ${
+                  location.pathname === '/settings/appearance'
+                    ? 'bg-surface-200 text-surface-800 font-medium'
+                    : 'text-surface-700 hover:bg-surface-100'
+                }`}
+                style={{ height: 28, lineHeight: '28px', textDecoration: 'none' }}
+              >
+                <Palette size={12} className="flex-none" />
+                Appearance
               </Link>
             </div>
           </nav>
