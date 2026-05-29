@@ -1,0 +1,91 @@
+_schema-version: '3.1'
+ID: itsm
+version: 0.1.0
+description: IT Service Management — SAP BTP Cloud Foundry
+
+# ── Build ────────────────────────────────────────────────────────────────────
+# Run `mbt build` from the project root; then `cf deploy mta_archives/itsm_0.1.0.mtar`
+# Requires: Cloud MTA Build Tool (mbt), CF CLI + multiapps plugin
+
+modules:
+
+  # ── Static UI (Vite build → copied into approuter/resources) ─────────────
+  - name: itsm-ui
+    type: html5
+    path: frontend
+    build-parameters:
+      builder: custom
+      commands:
+        - npm install
+        - npm run build
+      artifacts:
+        - dist/**
+      supported-platforms: []
+
+  # ── Approuter (entry point — auth gate + static files + API proxy) ─────────
+  - name: itsm-approuter
+    type: approuter.nodejs
+    path: deploy/approuter
+    parameters:
+      disk-quota: 256M
+      memory: 128M
+    requires:
+      - name: itsm-xsuaa
+      - name: itsm-api-dest
+        group: destinations
+        properties:
+          name: itsm-api
+          url: ~{url}
+          forwardAuthToken: true
+    build-parameters:
+      requires:
+        - name: itsm-ui
+          artifacts:
+            - dist/**
+          target-path: resources
+
+  # ── Backend (FastAPI + Python buildpack) ──────────────────────────────────
+  - name: itsm-api
+    type: application
+    path: backend
+    parameters:
+      disk-quota: 512M
+      memory: 384M
+      buildpack: python_buildpack
+      health-check-type: http
+      health-check-http-endpoint: /health
+      # Internal route only — browser traffic goes through the approuter
+      # Uncomment the line below once CF internal routing is confirmed working:
+      # no-route: true
+    properties:
+      AUTH_MODE: real
+      TABLE_PREFIX: ITSMAI_
+      # CORS: restrict to your approuter URL after first deploy
+      # e.g. CORS_ORIGINS: '["https://itsm-approuter.cfapps.eu10.hana.ondemand.com"]'
+      CORS_ORIGINS: '["*"]'
+    requires:
+      - name: itsm-xsuaa
+      - name: itsm-hana
+    provides:
+      - name: itsm-api-dest
+        properties:
+          url: ${default-url}
+
+# ── Resources ────────────────────────────────────────────────────────────────
+
+resources:
+
+  # XSUAA — created/updated on each deploy from xs-security.json
+  - name: itsm-xsuaa
+    type: org.cloudfoundry.managed-service
+    parameters:
+      service: xsuaa
+      service-plan: application
+      path: deploy/xs-security.json
+
+  # HANA Cloud — must already exist in your CF space
+  # Change `service-name` to match your actual HANA Cloud service instance name
+  - name: itsm-hana
+    type: org.cloudfoundry.existing-service
+    parameters:
+      service-name: itsm-hana-db

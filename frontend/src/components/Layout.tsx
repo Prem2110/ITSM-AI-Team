@@ -1,23 +1,60 @@
 import { Link, Outlet, useLocation } from 'react-router-dom'
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Settings, Palette } from 'lucide-react'
 import { clearFakeUser, getFakeUser } from '@/api/auth'
 import { useNavigate } from 'react-router-dom'
 import { useIsFetching } from '@tanstack/react-query'
 import { useSetupStatus } from '@/hooks/useSetupStatus'
 import { useTranslation } from 'react-i18next'
+import { SettingsModal, type SettingsTab } from '@/components/SettingsModal'
 
 function LoadingBar() {
   const isFetching = useIsFetching()
-  if (!isFetching) return null
+  const active = isFetching > 0
+  const [mounted, setMounted] = useState(false)
+  const [pct, setPct] = useState(0)
+  const [fading, setFading] = useState(false)
+  const prevRef = useRef(false)
+
+  useEffect(() => {
+    const was = prevRef.current
+    prevRef.current = active
+
+    if (active && !was) {
+      setMounted(true)
+      setFading(false)
+      setPct(0)
+      const t1 = setTimeout(() => setPct(35), 16)
+      const t2 = setTimeout(() => setPct(78), 320)
+      return () => { clearTimeout(t1); clearTimeout(t2) }
+    }
+
+    if (!active && was) {
+      setPct(100)
+      const t1 = setTimeout(() => setFading(true), 200)
+      const t2 = setTimeout(() => { setMounted(false); setPct(0); setFading(false) }, 480)
+      return () => { clearTimeout(t1); clearTimeout(t2) }
+    }
+  }, [active])
+
+  if (!mounted) return null
+
+  const transition = pct === 0
+    ? 'none'
+    : pct <= 35
+    ? 'width 200ms cubic-bezier(0.16, 1, 0.3, 1)'
+    : pct <= 78
+    ? 'width 1400ms cubic-bezier(0.04, 0.6, 0.1, 1)'
+    : 'width 200ms ease-out, opacity 220ms ease-out'
+
   return (
-    <div style={{ position: 'fixed', top: 0, left: 0, right: 0, height: 2, zIndex: 9999, overflow: 'hidden', pointerEvents: 'none' }}>
+    <div style={{ position: 'fixed', top: 0, left: 0, right: 0, height: 2, zIndex: 9999, pointerEvents: 'none' }}>
       <div style={{
-        position: 'absolute',
-        top: 0,
         height: '100%',
+        width: `${pct}%`,
+        opacity: fading ? 0 : 1,
         background: 'linear-gradient(90deg, #6366f1, #818cf8)',
-        animation: 'loading-slide 900ms ease-in-out infinite',
+        transition,
       }} />
     </div>
   )
@@ -36,8 +73,15 @@ export default function Layout() {
   const location = useLocation()
   const email = getFakeUser() ?? ''
   const [navFilter, setNavFilter] = useState('')
+  const [settingsOpen, setSettingsOpen] = useState(false)
+  const [settingsTab, setSettingsTab]   = useState<SettingsTab>('general')
   const { data: setupStatus } = useSetupStatus()
   const { t } = useTranslation()
+
+  function openSettings(tab: SettingsTab) {
+    setSettingsTab(tab)
+    setSettingsOpen(true)
+  }
 
   const NAV_SECTIONS: { header: string; items: NavItem[] }[] = [
     {
@@ -92,14 +136,14 @@ export default function Layout() {
         </Link>
         <div className="flex items-center gap-3">
           <span className="text-xs text-surface-500">{email}</span>
-          <Link
-            to="/settings"
+          <button
+            onClick={() => openSettings('general')}
             className="flex items-center justify-center text-surface-500 hover:text-surface-700 hover:bg-surface-50 border border-surface-200 transition-colors"
             style={{ width: 26, height: 26, borderRadius: 2 }}
             title="Settings"
           >
             <Settings size={13} />
-          </Link>
+          </button>
           <button
             onClick={handleLogout}
             className="text-xs text-surface-500 hover:text-surface-700 border border-surface-200 px-2 py-0.5 hover:bg-surface-50 transition-colors"
@@ -154,30 +198,30 @@ export default function Layout() {
             ))}
             {/* Bottom: Settings */}
             <div className="border-t border-surface-200 pt-1 mt-2">
-              <Link
-                to="/settings"
-                className={`flex items-center gap-2 px-3 text-xs transition-colors ${
-                  location.pathname === '/settings'
+              <button
+                onClick={() => openSettings('general')}
+                className={`flex items-center gap-2 px-3 text-xs transition-colors w-full text-left ${
+                  settingsOpen && settingsTab === 'general'
                     ? 'bg-surface-200 text-surface-800 font-medium'
                     : 'text-surface-700 hover:bg-surface-100'
                 }`}
-                style={{ height: 28, lineHeight: '28px', textDecoration: 'none' }}
+                style={{ height: 28 }}
               >
                 <Settings size={12} className="flex-none" />
                 {t('nav.settings')}
-              </Link>
-              <Link
-                to="/settings/appearance"
-                className={`flex items-center gap-2 px-3 text-xs transition-colors ${
-                  location.pathname === '/settings/appearance'
+              </button>
+              <button
+                onClick={() => openSettings('appearance')}
+                className={`flex items-center gap-2 px-3 text-xs transition-colors w-full text-left ${
+                  settingsOpen && settingsTab === 'appearance'
                     ? 'bg-surface-200 text-surface-800 font-medium'
                     : 'text-surface-700 hover:bg-surface-100'
                 }`}
-                style={{ height: 28, lineHeight: '28px', textDecoration: 'none' }}
+                style={{ height: 28 }}
               >
                 <Palette size={12} className="flex-none" />
                 {t('nav.appearance')}
-              </Link>
+              </button>
             </div>
           </nav>
         </aside>
@@ -189,6 +233,12 @@ export default function Layout() {
           </div>
         </main>
       </div>
+
+      <SettingsModal
+        open={settingsOpen}
+        defaultTab={settingsTab}
+        onClose={() => setSettingsOpen(false)}
+      />
     </div>
   )
 }

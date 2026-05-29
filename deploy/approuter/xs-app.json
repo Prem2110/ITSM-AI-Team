@@ -1,0 +1,24 @@
+{
+  "welcomeFile": "/index.html",
+  "authenticationMethod": "route",
+  "routes": [
+    {
+      "source": "^/api/(.*)",
+      "target": "/api/$1",
+      "destination": "itsm-api",
+      "authenticationType": "xsuaa",
+      "csrfProtection": false
+    },
+    {
+      "source": "^/(assets/.*|.*\\.js|.*\\.css|.*\\.png|.*\\.ico|.*\\.svg|.*\\.woff2?)$",
+      "localDir": "resources",
+      "authenticationType": "none"
+    },
+    {
+      "source": "^/(.*)$",
+      "target": "/index.html",
+      "localDir": "resources",
+      "authenticationType": "xsuaa"
+    }
+  ]
+}

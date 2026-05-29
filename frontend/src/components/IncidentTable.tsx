@@ -123,7 +123,7 @@ export function IncidentTable({ items, priorities, sort, order, onSort, isLoadin
                 height: 32,
                 borderBottom: '1px solid var(--border-subtle)',
                 cursor: 'pointer',
-                animationDelay: `${Math.min(i * 25, 200)}ms`,
+                animationDelay: `${Math.min(Math.round(Math.sqrt(i) * 40), 220)}ms`,
               }}
               className="hover:bg-surface-50 group/row animate-row-enter"
             >

@@ -87,6 +87,7 @@ export interface IncidentFilters {
   requester_id?: string
   q?: string
   category?: string
+  sla_breached?: boolean
   sort?: string
   order?: 'asc' | 'desc'
   page?: number

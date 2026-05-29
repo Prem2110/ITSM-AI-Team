@@ -16,6 +16,8 @@ _INCIDENT_UPDATABLE = frozenset({
     "resolved_at", "closed_at", "sla_breached", "sla_resolution_due", "updated_at",
 })
 
+_OPEN_STATES_EXCL = frozenset({"resolved", "closed"})
+
 _CLOSED_STATES = frozenset({"resolved", "closed"})
 
 
@@ -90,6 +92,7 @@ class IncidentRepository:
         requester_id: str | None = None,
         q: str | None = None,
         category: str | None = None,
+        sla_breached: bool | None = None,
         sort: str = "created_at",
         order: str = "desc",
         limit: int = 50,
@@ -110,6 +113,8 @@ class IncidentRepository:
             query = query.where(Incident.title.ilike(f"%{q}%"))
         if category is not None:
             query = query.where(Incident.category == category)
+        if sla_breached is not None:
+            query = query.where(Incident.sla_breached == sla_breached)  # noqa: E712
         sort_col = {
             "created_at": Incident.created_at,
             "updated_at": Incident.updated_at,
@@ -129,6 +134,7 @@ class IncidentRepository:
         requester_id: str | None = None,
         q: str | None = None,
         category: str | None = None,
+        sla_breached: bool | None = None,
     ) -> int:
         query = select(func.count()).select_from(Incident)
         if state is not None:
@@ -145,6 +151,8 @@ class IncidentRepository:
             query = query.where(Incident.title.ilike(f"%{q}%"))
         if category is not None:
             query = query.where(Incident.category == category)
+        if sla_breached is not None:
+            query = query.where(Incident.sla_breached == sla_breached)  # noqa: E712
         result = await self.session.execute(query)
         return result.scalar_one()
 
@@ -209,3 +217,78 @@ class IncidentRepository:
             "by_state": by_state,
             "by_priority": by_priority,
         }
+
+    async def get_trends(self, days: int) -> dict:
+        now = utcnow()
+        since = now - timedelta(days=days)
+
+        created_rows = (await self.session.execute(
+            select(Incident.created_at).where(Incident.created_at >= since)
+        )).scalars().all()
+
+        resolved_rows = (await self.session.execute(
+            select(Incident.resolved_at).where(
+                Incident.resolved_at.isnot(None),
+                Incident.resolved_at >= since,
+            )
+        )).scalars().all()
+
+        # range(1, days+1) so the last date is today (since + days = now)
+        dates = [(since + timedelta(days=i)).strftime('%Y-%m-%d') for i in range(1, days + 1)]
+        new_map: dict[str, int] = {d: 0 for d in dates}
+        res_map: dict[str, int] = {d: 0 for d in dates}
+
+        for dt in created_rows:
+            d = dt.strftime('%Y-%m-%d')
+            if d in new_map:
+                new_map[d] += 1
+
+        for dt in resolved_rows:
+            d = dt.strftime('%Y-%m-%d')
+            if d in res_map:
+                res_map[d] += 1
+
+        return {
+            "dates": dates,
+            "new_counts": [new_map[d] for d in dates],
+            "resolved_counts": [res_map[d] for d in dates],
+        }
+
+    async def get_sla_compliance(self, days: int) -> dict:
+        now = utcnow()
+        since = now - timedelta(days=days)
+
+        rows = (await self.session.execute(
+            select(Incident.resolved_at, Incident.sla_resolution_due).where(
+                Incident.resolved_at.isnot(None),
+                Incident.resolved_at >= since,
+            )
+        )).all()
+
+        total = len(rows)
+        if total == 0:
+            return {"compliance_pct": 0.0, "met": 0, "total": 0}
+
+        met = sum(
+            1 for row in rows
+            if row.sla_resolution_due is not None and row.resolved_at <= row.sla_resolution_due
+        )
+        return {
+            "compliance_pct": round(met / total * 100, 1),
+            "met": met,
+            "total": total,
+        }
+
+    async def get_top_categories(self, days: int, limit: int) -> list[dict]:
+        now = utcnow()
+        since = now - timedelta(days=days)
+
+        rows = (await self.session.execute(
+            select(Incident.category, func.count().label("cnt"))
+            .where(Incident.created_at >= since)
+            .group_by(Incident.category)
+            .order_by(func.count().desc())
+            .limit(limit)
+        )).all()
+
+        return [{"category": row.category, "count": row.cnt} for row in rows]

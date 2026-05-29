@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   LineChart, Line, BarChart, Bar, XAxis, YAxis,
@@ -7,13 +8,43 @@ import { useTranslation } from 'react-i18next'
 import { useDashboard, useDashboardTrends, useDashboardSlaCompliance, useDashboardTopCategories } from '@/hooks/useDashboard'
 import { usePriorities } from '@/hooks'
 
+// ─── Count-up ─────────────────────────────────────────────────────────────────
+
+function useCountUp(target: number, duration = 650) {
+  const [count, setCount] = useState(0)
+  useEffect(() => {
+    if (target === 0) { setCount(0); return }
+    const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    if (reduced) { setCount(target); return }
+    let start: number | null = null
+    let raf: number
+    function tick(ts: number) {
+      if (start === null) start = ts
+      const t = Math.min((ts - start) / duration, 1)
+      const eased = 1 - Math.pow(1 - t, 3)
+      setCount(Math.round(eased * target))
+      if (t < 1) raf = requestAnimationFrame(tick)
+    }
+    raf = requestAnimationFrame(tick)
+    return () => cancelAnimationFrame(raf)
+  }, [target, duration])
+  return count
+}
+
 // ─── Skeleton ─────────────────────────────────────────────────────────────────
 
 function Sk({ h = 14, w = '100%', className = '' }: { h?: number; w?: string | number; className?: string }) {
   return (
     <div
-      className={`animate-pulse bg-surface-100 ${className}`}
-      style={{ height: h, width: w, borderRadius: 3 }}
+      className={className}
+      style={{
+        height: h,
+        width: w,
+        borderRadius: 3,
+        background: 'linear-gradient(90deg, var(--shimmer-base) 25%, var(--shimmer-highlight) 50%, var(--shimmer-base) 75%)',
+        backgroundSize: '300% 100%',
+        animation: 'skeleton-shimmer 1.6s ease-in-out infinite',
+      }}
     />
   )
 }
@@ -30,6 +61,8 @@ interface StatCardProps {
 
 function StatCard({ label, value, href, accent = '#6366f1', loading }: StatCardProps) {
   const navigate = useNavigate()
+  const count = useCountUp(loading ? 0 : (value ?? 0))
+
   if (loading) {
     return (
       <div className="bg-white border border-surface-200 px-4 pt-4 pb-5" style={{ borderRadius: 4 }}>
@@ -41,14 +74,14 @@ function StatCard({ label, value, href, accent = '#6366f1', loading }: StatCardP
   return (
     <button
       onClick={() => navigate(href)}
-      className="group bg-white border border-surface-200 px-4 pt-4 pb-5 text-left hover:border-surface-300 hover:shadow-sm transition-all w-full"
+      className="stat-card bg-white border border-surface-200 px-4 pt-4 pb-5 text-left w-full animate-content-enter"
       style={{ borderRadius: 4 }}
     >
       <div className="text-2xs font-semibold text-surface-400 uppercase tracking-wider mb-1.5">
         {label}
       </div>
-      <div className="text-3xl font-bold leading-none" style={{ color: accent }}>
-        {value ?? 0}
+      <div className="text-3xl font-bold leading-none tabular-nums" style={{ color: accent }}>
+        {count}
       </div>
     </button>
   )

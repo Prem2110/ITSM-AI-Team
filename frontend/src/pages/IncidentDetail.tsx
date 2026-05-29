@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { ChevronLeft, AlertTriangle, ChevronDown, Loader2 } from 'lucide-react'
+import { Skeleton } from '@/components/Skeleton'
 import { useIncident, useMe, useUsers, usePriorities, useCategories, useStates, useResolutionCodes } from '@/hooks'
 import { patchIncident, transitionIncident } from '@/api/incidents'
 import { createEvent } from '@/api/events'
@@ -262,8 +263,28 @@ export default function IncidentDetail() {
 
   if (isLoading) {
     return (
-      <div className="flex-1 flex items-center justify-center text-xs text-surface-400">
-        Loading…
+      <div className="flex flex-col h-full overflow-hidden">
+        {/* Header skeleton */}
+        <div className="flex-none flex items-center gap-3 px-4 bg-white border-b border-surface-200" style={{ height: 44 }}>
+          <Skeleton height={10} width={60} />
+          <Skeleton height={10} width={1} />
+          <Skeleton height={14} width={180} />
+        </div>
+        {/* Body skeleton */}
+        <div className="flex flex-1 overflow-hidden">
+          <div className="flex-1 overflow-y-auto px-5 py-5 flex flex-col gap-4">
+            <Skeleton height={14} width="60%" />
+            <Skeleton height={60} />
+            <div className="grid grid-cols-2 gap-4">
+              <Skeleton height={30} />
+              <Skeleton height={30} />
+            </div>
+            <Skeleton height={80} />
+          </div>
+          <div className="flex-none border-l border-surface-200 overflow-y-auto px-4 py-4 flex flex-col gap-3" style={{ width: 240 }}>
+            {[70, 50, 50, 60, 50].map((w, i) => <Skeleton key={i} height={24} width={w} />)}
+          </div>
+        </div>
       </div>
     )
   }

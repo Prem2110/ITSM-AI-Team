@@ -22,6 +22,7 @@ async def list_incidents(
     requester_id: str | None = Query(None),
     q: str | None = Query(None),
     category: str | None = Query(None),
+    sla_breached: bool | None = Query(None),
     sort: str = Query("created_at"),
     order: str = Query("desc"),
     page: int = Query(1, ge=1),
@@ -35,11 +36,13 @@ async def list_incidents(
     items = await repo.list(
         state=state, priority=priority, assignee_id=assignee_id,
         requester_id=requester_id, q=q, category=category,
+        sla_breached=sla_breached,
         sort=sort, order=order, limit=page_size, offset=offset,
     )
     total = await repo.count(
         state=state, priority=priority, assignee_id=assignee_id,
         requester_id=requester_id, q=q, category=category,
+        sla_breached=sla_breached,
     )
     for inc in items:
         await svc.check_and_update_sla_breach(inc)

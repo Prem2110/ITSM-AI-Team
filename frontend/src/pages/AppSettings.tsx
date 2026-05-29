@@ -7,6 +7,7 @@ import { patchAppSettings } from '@/api/setup'
 import { useMe } from '@/hooks/useMe'
 import { usePriorities } from '@/hooks'
 import { PriorityBadge } from '@/components/PriorityBadge'
+import { Skeleton } from '@/components/Skeleton'
 
 // ─── timezones ────────────────────────────────────────────────────────────────
 
@@ -164,7 +165,18 @@ export default function AppSettings() {
         <div style={{ maxWidth: 580 }}>
 
           {isLoading && (
-            <div className="text-xs text-surface-400 py-4">Loading…</div>
+            <div className="flex flex-col gap-6 py-2">
+              <div className="flex flex-col gap-3">
+                <Skeleton height={10} width="40%" />
+                <Skeleton height={30} />
+                <Skeleton height={30} />
+                <Skeleton height={28} width={80} />
+              </div>
+              <div className="flex flex-col gap-3">
+                <Skeleton height={10} width="35%" />
+                <Skeleton height={28} width={80} />
+              </div>
+            </div>
           )}
 
           {!isLoading && !isAdmin && (

@@ -1,0 +1,61 @@
+{
+  "xsappname": "itsm",
+  "tenant-mode": "dedicated",
+  "description": "ITSM — IT Service Management",
+  "scopes": [
+    { "name": "$XSAPPNAME.Viewer",  "description": "Read incidents and events" },
+    { "name": "$XSAPPNAME.Support", "description": "Create and update incidents" },
+    { "name": "$XSAPPNAME.Agent",   "description": "Assign, transition and resolve incidents" },
+    { "name": "$XSAPPNAME.Admin",   "description": "Full administrative access including settings" }
+  ],
+  "role-templates": [
+    {
+      "name": "Viewer",
+      "description": "Read-only access",
+      "scope-references": [ "$XSAPPNAME.Viewer" ]
+    },
+    {
+      "name": "Support",
+      "description": "Create and edit incidents",
+      "scope-references": [ "$XSAPPNAME.Support" ]
+    },
+    {
+      "name": "Agent",
+      "description": "Full incident handling",
+      "scope-references": [ "$XSAPPNAME.Agent" ]
+    },
+    {
+      "name": "Admin",
+      "description": "Full access including settings",
+      "scope-references": [ "$XSAPPNAME.Admin" ]
+    }
+  ],
+  "role-collections": [
+    {
+      "name": "ITSM_Viewer",
+      "description": "ITSM read-only users",
+      "role-template-references": [ "$XSAPPNAME.Viewer" ]
+    },
+    {
+      "name": "ITSM_Support",
+      "description": "ITSM support staff",
+      "role-template-references": [ "$XSAPPNAME.Support" ]
+    },
+    {
+      "name": "ITSM_Agent",
+      "description": "ITSM agents",
+      "role-template-references": [ "$XSAPPNAME.Agent" ]
+    },
+    {
+      "name": "ITSM_Admin",
+      "description": "ITSM administrators",
+      "role-template-references": [ "$XSAPPNAME.Admin" ]
+    }
+  ],
+  "oauth2-configuration": {
+    "redirect-uris": [
+      "https://*.cfapps.eu10.hana.ondemand.com/**",
+      "https://*.cfapps.us10.hana.ondemand.com/**"
+    ]
+  }
+}
