@@ -1,20 +1,25 @@
+import { lazy, Suspense } from 'react'
 import { createBrowserRouter, Navigate } from 'react-router-dom'
 import { RequireAuth, RequireSetup } from '@/components/RouteGuards'
 import Layout from '@/components/Layout'
-import Login from '@/pages/Login'
-import Incidents from '@/pages/Incidents'
-import IncidentNew from '@/pages/IncidentNew'
-import IncidentDetail from '@/pages/IncidentDetail'
-import Dashboard from '@/pages/Dashboard'
-import Setup from '@/pages/Setup'
+import { PageSpinner } from '@/components/Skeleton'
+
+const Setup = lazy(() => import('@/pages/Setup'))
+const Login = lazy(() => import('@/pages/Login'))
+const Incidents = lazy(() => import('@/pages/Incidents'))
+const IncidentNew = lazy(() => import('@/pages/IncidentNew'))
+const IncidentDetail = lazy(() => import('@/pages/IncidentDetail'))
+const Dashboard = lazy(() => import('@/pages/Dashboard'))
 
 export const router = createBrowserRouter([
-  { path: '/setup', element: <Setup /> },
+  { path: '/setup', element: <Suspense fallback={<PageSpinner />}><Setup /></Suspense> },
   {
     path: '/login',
     element: (
       <RequireSetup>
-        <Login />
+        <Suspense fallback={<PageSpinner />}>
+          <Login />
+        </Suspense>
       </RequireSetup>
     ),
   },
@@ -29,10 +34,10 @@ export const router = createBrowserRouter([
     ),
     children: [
       { index: true, element: <Navigate to="/incidents" replace /> },
-      { path: 'incidents', element: <Incidents /> },
-      { path: 'incidents/new', element: <IncidentNew /> },
-      { path: 'incidents/:id', element: <IncidentDetail /> },
-      { path: 'dashboard', element: <Dashboard /> },
+      { path: 'incidents', element: <Suspense fallback={<PageSpinner />}><Incidents /></Suspense> },
+      { path: 'incidents/new', element: <Suspense fallback={<PageSpinner />}><IncidentNew /></Suspense> },
+      { path: 'incidents/:id', element: <Suspense fallback={<PageSpinner />}><IncidentDetail /></Suspense> },
+      { path: 'dashboard', element: <Suspense fallback={<PageSpinner />}><Dashboard /></Suspense> },
     ],
   },
   {

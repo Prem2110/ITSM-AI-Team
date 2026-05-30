@@ -36,34 +36,30 @@ export function SkeletonText({ lines = 3, lastWidth = '60%' }: { lines?: number;
   )
 }
 
-export function FourSquareLoader({
-  size = 56,
-  color = '#64748b',
-}: {
-  size?: number
-  color?: string
-}) {
-  const sq = Math.round(size * 0.38)
-  const mid = Math.round((size - sq) / 2)
-
-  const base: CSSProperties = {
-    position: 'absolute',
-    width: sq,
-    height: sq,
-    backgroundColor: color,
-    borderRadius: 2,
-    animationName: 'fsq-pulse',
-    animationDuration: '1.4s',
-    animationTimingFunction: 'ease-in-out',
-    animationIterationCount: 'infinite',
-  }
-
+export function FourSquareLoader({ size: _size, color }: { size?: number; color?: string }) {
+  const customStyle = color ? { '--dot': color } as React.CSSProperties : undefined
   return (
-    <div style={{ position: 'relative', width: size, height: size, flexShrink: 0 }}>
-      <div style={{ ...base, top: 0,   left: mid,  animationDelay: '0s'    }} />
-      <div style={{ ...base, top: mid, left: 0,    animationDelay: '0.35s' }} />
-      <div style={{ ...base, top: mid, right: 0,   animationDelay: '0.7s'  }} />
-      <div style={{ ...base, bottom: 0, left: mid, animationDelay: '1.05s' }} />
+    <div className="geometric-loader-container" style={customStyle}>
+      {/* Circle */}
+      <div className="geom-loader">
+        <svg viewBox="0 0 80 80">
+          <circle cx="40" cy="40" r="32"></circle>
+        </svg>
+      </div>
+
+      {/* Triangle */}
+      <div className="geom-loader triangle">
+        <svg viewBox="0 0 86 80">
+          <polygon points="43 8, 79 72, 7 72"></polygon>
+        </svg>
+      </div>
+
+      {/* Square */}
+      <div className="geom-loader">
+        <svg viewBox="0 0 80 80">
+          <rect x="8" y="8" width="64" height="64"></rect>
+        </svg>
+      </div>
     </div>
   )
 }
