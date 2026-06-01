@@ -21,6 +21,7 @@ class AttachmentRepository:
             uploaded_by=data.uploaded_by,
         )
         self.session.add(att)
+        await self.session.flush()
         return att
 
     async def list_for_incident(self, incident_id: str) -> list[Attachment]:

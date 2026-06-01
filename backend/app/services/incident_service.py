@@ -91,7 +91,12 @@ class IncidentService:
             fields["sla_resolution_due"] = _sla_due(fields["priority"], incident.created_at, sla_targets)
 
         fields["updated_at"] = utcnow()
-        await self._inc.update(incident_id, fields)
+        updated = await self._inc.update_if_current(incident_id, incident.updated_at, fields)
+        if not updated:
+            raise HTTPException(
+                status_code=409,
+                detail="Incident was modified by another request. Refresh and retry.",
+            )
 
         for field_name, vals in changed.items():
             await self._evt.create(IncidentEventCreate(
@@ -177,6 +182,15 @@ class IncidentService:
         )
         now = utcnow()
         update_fields: dict = {"state": req.to_state, "updated_at": now}
+        if from_state == "on_hold" and req.to_state != "on_hold":
+            if incident.sla_paused_at is not None and incident.sla_resolution_due is not None:
+                update_fields["sla_resolution_due"] = (
+                    incident.sla_resolution_due + (now - incident.sla_paused_at)
+                )
+            update_fields["sla_paused_at"] = None
+        elif from_state != "on_hold" and req.to_state == "on_hold":
+            update_fields["sla_paused_at"] = now
+
         if req.resolution_code:
             update_fields["resolution_code"] = req.resolution_code
         if req.resolution_notes:
@@ -185,8 +199,17 @@ class IncidentService:
             update_fields["resolved_at"] = now
         if req.to_state == "closed":
             update_fields["closed_at"] = now
+        # Reopened incidents must not retain terminal timestamps.
+        if req.to_state in ("new", "assigned", "in_progress", "on_hold"):
+            update_fields["resolved_at"] = None
+            update_fields["closed_at"] = None
 
-        await self._inc.update(incident_id, update_fields)
+        updated = await self._inc.update_if_current(incident_id, incident.updated_at, update_fields)
+        if not updated:
+            raise HTTPException(
+                status_code=409,
+                detail="Incident was modified by another request. Refresh and retry.",
+            )
 
         await self._evt.create(IncidentEventCreate(
             incident_id=incident_id,
@@ -229,6 +252,7 @@ class IncidentService:
             resolution_code=incident.resolution_code,
             resolution_notes=incident.resolution_notes,
             sla_resolution_due=incident.sla_resolution_due,
+            sla_paused_at=incident.sla_paused_at,
             sla_breached=incident.sla_breached,
             created_at=incident.created_at,
             updated_at=incident.updated_at,
@@ -260,3 +284,37 @@ class IncidentService:
                 "sla_breached": True,
                 "updated_at": utcnow(),
             })
+
+    async def run_auto_escalations(self, caller: CallerContext, limit: int = 200) -> dict:
+        await self._inc.mark_overdue_sla_breached()
+        candidates = await self._inc.list_auto_escalation_candidates(limit=limit)
+        escalated = 0
+        for inc in candidates:
+            new_priority = max(0, inc.priority - 1)
+            now = utcnow()
+            updated = await self._inc.update_if_current(
+                inc.id,
+                inc.updated_at,
+                {
+                    "priority": new_priority,
+                    "updated_at": now,
+                },
+            )
+            if not updated:
+                continue
+            escalated += 1
+            await self._evt.create(IncidentEventCreate(
+                incident_id=inc.id,
+                actor_id=caller.user_id,
+                event_type="field_update",
+                body=None,
+                event_metadata={
+                    "action": "auto_escalated",
+                    "field": "priority",
+                    "old": str(inc.priority),
+                    "new": str(new_priority),
+                    "reason": "sla_breached",
+                },
+            ))
+        logger.info("incident.auto_escalation completed escalated=%d caller=%s", escalated, caller.email)
+        return {"scanned": len(candidates), "escalated": escalated}

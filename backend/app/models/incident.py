@@ -28,6 +28,7 @@ class Incident(Base):
     resolution_code: Mapped[str | None] = mapped_column(String(100), nullable=True)
     resolution_notes: Mapped[str | None] = mapped_column(Text, nullable=True)
     sla_resolution_due: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    sla_paused_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     sla_breached: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, nullable=False)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow, nullable=False)

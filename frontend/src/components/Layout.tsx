@@ -1,6 +1,6 @@
 import { Link, Outlet, useLocation } from 'react-router-dom'
 import { useState, useEffect, useRef } from 'react'
-import { Settings, Palette } from 'lucide-react'
+import { Settings } from 'lucide-react'
 import { clearFakeUser, getFakeUser } from '@/api/auth'
 import { useNavigate } from 'react-router-dom'
 import { useIsFetching } from '@tanstack/react-query'
@@ -64,6 +64,7 @@ interface NavItem {
   label: string
   to: string
   matchFn?: (pathname: string, search: string) => boolean
+  divider?: boolean
 }
 
 // Nav sections are built inside the component so labels re-render on language change
@@ -85,14 +86,20 @@ export default function Layout() {
 
   const NAV_SECTIONS: { header: string; items: NavItem[] }[] = [
     {
+      header: '',
+      items: [
+        { label: t('nav.dashboard'), to: '/dashboard', matchFn: (p) => p === '/dashboard' },
+      ],
+    },
+    {
       header: t('nav.incidents'),
       items: [
-        { label: t('nav.dashboard'),      to: '/dashboard',                                             matchFn: (p) => p === '/dashboard' },
-        { label: t('nav.allOpen'),         to: '/incidents?state=new,assigned,in_progress,on_hold',     matchFn: (_p, s) => s.includes('state=new%2Cassigned%2Cin_progress%2Con_hold') || s.includes('state=new,assigned,in_progress,on_hold') },
-        { label: t('nav.myOpen'),          to: '/incidents?assignee_id=me&state=new,assigned,in_progress,on_hold', matchFn: (_p, s) => s.includes('assignee_id=me') },
-        { label: t('nav.unassigned'),      to: '/incidents?assignee_id=unassigned',                    matchFn: (_p, s) => s.includes('assignee_id=unassigned') },
-        { label: t('nav.resolvedToday'),   to: '/incidents?state=resolved',                            matchFn: (_p, s) => s === '?state=resolved' || s === 'state=resolved' },
-        { label: t('nav.allIncidents'),    to: '/incidents',                                            matchFn: (p, s) => p === '/incidents' && s === '' },
+        { label: 'Highly Critical',     to: '/incidents?priority=0',                                           matchFn: (_p, s) => s.includes('priority=0') },
+        { label: t('nav.allOpen'),      to: '/incidents?state=new,assigned,in_progress,on_hold',              matchFn: (_p, s) => s.includes('state=new%2Cassigned%2Cin_progress%2Con_hold') || s.includes('state=new,assigned,in_progress,on_hold') },
+        { label: t('nav.myOpen'),       to: '/incidents?assignee_id=me&state=new,assigned,in_progress,on_hold', matchFn: (_p, s) => s.includes('assignee_id=me') },
+        { label: t('nav.unassigned'),   to: '/incidents?assignee_id=unassigned',                               matchFn: (_p, s) => s.includes('assignee_id=unassigned') },
+        { label: t('nav.resolvedToday'),to: '/incidents?state=resolved',                                       matchFn: (_p, s) => s === '?state=resolved' || s === 'state=resolved' },
+        { label: t('nav.allIncidents'), to: '/incidents',                                                      matchFn: (p, s) => p === '/incidents' && s === '' },
       ],
     },
     {
@@ -174,9 +181,11 @@ export default function Layout() {
           <nav className="flex-1 py-1 flex flex-col justify-between">
             {filteredSections.map(section => (
               <div key={section.header} className="mb-2">
-                <div className="px-3 py-1 text-2xs font-semibold text-surface-400 uppercase tracking-widest">
-                  {section.header}
-                </div>
+                {section.header && (
+                  <div className="px-3 py-1 text-2xs font-semibold text-surface-400 uppercase tracking-widest">
+                    {section.header}
+                  </div>
+                )}
                 {section.items.map(item => {
                   const active = isActive(item)
                   return (
@@ -209,18 +218,6 @@ export default function Layout() {
               >
                 <Settings size={12} className="flex-none" />
                 {t('nav.settings')}
-              </button>
-              <button
-                onClick={() => openSettings('appearance')}
-                className={`flex items-center gap-2 px-3 text-xs transition-colors w-full text-left ${
-                  settingsOpen && settingsTab === 'appearance'
-                    ? 'bg-surface-200 text-surface-800 font-medium'
-                    : 'text-surface-700 hover:bg-surface-100'
-                }`}
-                style={{ height: 28 }}
-              >
-                <Palette size={12} className="flex-none" />
-                {t('nav.appearance')}
               </button>
             </div>
           </nav>

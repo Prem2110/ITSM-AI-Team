@@ -150,6 +150,56 @@ async def test_patch_resolution_codes_updates(client, test_db):
     assert r.json()["resolution_codes"] == ["Fixed", "By Design"]
 
 
+async def test_patch_settings_rejects_empty_company_name(client, test_db):
+    await _seed_all_users(test_db)
+    r = await client.patch(
+        "/api/settings",
+        json={"company_name": "   "},
+        headers=ADMIN_H,
+    )
+    assert r.status_code == 422
+
+
+async def test_patch_settings_rejects_non_positive_sla_targets(client, test_db):
+    await _seed_all_users(test_db)
+    r = await client.patch(
+        "/api/settings",
+        json={"sla_targets": {"1": 0, "2": 8, "3": 24, "4": 72}},
+        headers=ADMIN_H,
+    )
+    assert r.status_code == 422
+
+
+async def test_patch_settings_rejects_blank_resolution_codes(client, test_db):
+    await _seed_all_users(test_db)
+    r = await client.patch(
+        "/api/settings",
+        json={"resolution_codes": ["   "]},
+        headers=ADMIN_H,
+    )
+    assert r.status_code == 422
+
+
+async def test_patch_settings_rejects_sla_targets_missing_priority_key(client, test_db):
+    await _seed_all_users(test_db)
+    r = await client.patch(
+        "/api/settings",
+        json={"sla_targets": {"1": 4, "2": 8, "3": 24}},
+        headers=ADMIN_H,
+    )
+    assert r.status_code == 422
+
+
+async def test_patch_settings_rejects_sla_targets_unknown_priority_key(client, test_db):
+    await _seed_all_users(test_db)
+    r = await client.patch(
+        "/api/settings",
+        json={"sla_targets": {"1": 4, "2": 8, "3": 24, "4": 72, "5": 200}},
+        headers=ADMIN_H,
+    )
+    assert r.status_code == 422
+
+
 # ── SLA override from app_settings ───────────────────────────────────────────
 
 async def test_sla_override_from_app_settings(client, test_db):

@@ -1,4 +1,5 @@
 from __future__ import annotations
+import logging
 import uuid
 from pathlib import Path
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
@@ -15,6 +16,17 @@ from ..schemas.incident_event import IncidentEventCreate
 
 _UPLOAD_DIR = Path("uploads")
 _MAX_BYTES = 20 * 1024 * 1024
+_CHUNK_BYTES = 1024 * 1024
+_ALLOWED_MIME_TYPES = frozenset({
+    "text/plain",
+    "application/pdf",
+    "image/png",
+    "image/jpeg",
+    "application/json",
+    "application/zip",
+})
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/incidents/{incident_id}/attachments", tags=["attachments"])
 
@@ -29,23 +41,44 @@ async def upload_attachment(
     incident = await IncidentRepository(session).get_by_id(incident_id)
     if incident is None:
         raise HTTPException(status_code=404, detail="Incident not found")
-
-    content = await file.read()
-    if len(content) > _MAX_BYTES:
-        raise HTTPException(status_code=413, detail="File exceeds 20 MB limit")
+    mime_type = (file.content_type or "application/octet-stream").lower()
+    if mime_type not in _ALLOWED_MIME_TYPES:
+        raise HTTPException(
+            status_code=415,
+            detail=f"Unsupported file type: {mime_type}",
+        )
 
     file_uuid = str(uuid.uuid4())
     dest_dir = _UPLOAD_DIR / incident_id
     dest_dir.mkdir(parents=True, exist_ok=True)
     safe_filename = f"{file_uuid}_{Path(file.filename or 'upload').name}"
     dest_path = dest_dir / safe_filename
-    dest_path.write_bytes(content)
+    size_bytes = 0
+    try:
+        with dest_path.open("wb") as out:
+            while True:
+                chunk = await file.read(_CHUNK_BYTES)
+                if not chunk:
+                    break
+                size_bytes += len(chunk)
+                if size_bytes > _MAX_BYTES:
+                    logger.warning(
+                        "attachment.upload rejected incident_id=%s user_id=%s reason=size_limit",
+                        incident_id,
+                        caller.user_id,
+                    )
+                    raise HTTPException(status_code=413, detail="File exceeds 20 MB limit")
+                out.write(chunk)
+    except HTTPException:
+        if dest_path.exists():
+            dest_path.unlink()
+        raise
 
     att = await AttachmentRepository(session).create(AttachmentCreate(
         incident_id=incident_id,
         filename=file.filename or "upload",
-        mime_type=file.content_type or "application/octet-stream",
-        size_bytes=len(content),
+        mime_type=mime_type,
+        size_bytes=size_bytes,
         blob_ref=str(dest_path),
         uploaded_by=caller.user_id,
     ))
@@ -55,7 +88,7 @@ async def upload_attachment(
         actor_id=caller.user_id,
         event_type="attachment_added",
         body=None,
-        event_metadata={"filename": file.filename, "size_bytes": len(content)},
+        event_metadata={"filename": file.filename, "size_bytes": size_bytes},
     ))
 
     return AttachmentResponse.model_validate(att)

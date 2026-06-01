@@ -1,7 +1,7 @@
 from __future__ import annotations
 from datetime import datetime
 from typing import Literal
-from pydantic import BaseModel, ConfigDict, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 from ..config import app_config
 from .user import UserResponse
 from .incident_event import IncidentEventResponse
@@ -22,8 +22,8 @@ class IncidentCreate(BaseModel):
     @field_validator("priority")
     @classmethod
     def valid_priority(cls, v: int) -> int:
-        if not 1 <= v <= len(app_config.priorities):
-            raise ValueError(f"priority must be 1–{len(app_config.priorities)}")
+        if not 0 <= v <= len(app_config.priorities) - 1:
+            raise ValueError(f"priority must be 0–{len(app_config.priorities) - 1}")
         return v
 
     @field_validator("category")
@@ -56,8 +56,8 @@ class IncidentCreateRequest(BaseModel):
     @field_validator("priority")
     @classmethod
     def valid_priority(cls, v: int) -> int:
-        if not 1 <= v <= len(app_config.priorities):
-            raise ValueError(f"priority must be 1–{len(app_config.priorities)}")
+        if not 0 <= v <= len(app_config.priorities) - 1:
+            raise ValueError(f"priority must be 0–{len(app_config.priorities) - 1}")
         return v
 
     @field_validator("category")
@@ -88,8 +88,8 @@ class IncidentPatchRequest(BaseModel):
     @field_validator("priority")
     @classmethod
     def valid_priority(cls, v: int | None) -> int | None:
-        if v is not None and not 1 <= v <= len(app_config.priorities):
-            raise ValueError(f"priority must be 1–{len(app_config.priorities)}")
+        if v is not None and not 0 <= v <= len(app_config.priorities) - 1:
+            raise ValueError(f"priority must be 0–{len(app_config.priorities) - 1}")
         return v
 
     @field_validator("category")
@@ -104,9 +104,17 @@ class TransitionRequest(BaseModel):
     """API request body for POST /api/incidents/{id}/transition."""
     model_config = ConfigDict(extra="forbid")
 
-    to_state: str
-    resolution_code: str | None = None
-    resolution_notes: str | None = None
+    to_state: str = Field(
+        description="Target workflow state. Must be a configured next state from the current state."
+    )
+    resolution_code: str | None = Field(
+        default=None,
+        description="Required when transitioning into 'resolved'. Must match configured resolution codes.",
+    )
+    resolution_notes: str | None = Field(
+        default=None,
+        description="Required when transitioning into 'resolved'.",
+    )
 
     @field_validator("to_state")
     @classmethod
@@ -132,6 +140,7 @@ class IncidentResponse(BaseModel):
     resolution_code: str | None
     resolution_notes: str | None
     sla_resolution_due: datetime | None
+    sla_paused_at: datetime | None
     sla_breached: bool
     created_at: datetime
     updated_at: datetime
@@ -175,6 +184,7 @@ class IncidentDetail(BaseModel):
     resolution_code: str | None
     resolution_notes: str | None
     sla_resolution_due: datetime | None
+    sla_paused_at: datetime | None
     sla_breached: bool
     created_at: datetime
     updated_at: datetime

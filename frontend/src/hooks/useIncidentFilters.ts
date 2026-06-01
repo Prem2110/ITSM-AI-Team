@@ -31,7 +31,7 @@ const STATE_LABELS: Record<string, string> = {
   on_hold: 'On Hold', resolved: 'Resolved', closed: 'Closed',
   'new,assigned,in_progress,on_hold': 'All Open',
 }
-const PRIORITY_LABELS: Record<string, string> = { '1': 'Critical', '2': 'High', '3': 'Medium', '4': 'Low' }
+const PRIORITY_LABELS: Record<string, string> = { '0': 'Highly Critical', '1': 'Critical', '2': 'High', '3': 'Medium', '4': 'Low' }
 
 export function useIncidentFilters(): IncidentFilterState {
   const [searchParams, setSearchParams] = useSearchParams()

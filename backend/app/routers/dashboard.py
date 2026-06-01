@@ -14,7 +14,9 @@ async def get_summary(
     caller: CallerContext = require_scope("TicketRead"),
     session: AsyncSession = Depends(get_db),
 ) -> dict:
-    return await IncidentRepository(session).get_dashboard_summary(caller.user_id)
+    repo = IncidentRepository(session)
+    await repo.mark_overdue_sla_breached()
+    return await repo.get_dashboard_summary(caller.user_id)
 
 
 @router.get("/trends")
@@ -23,7 +25,9 @@ async def get_trends(
     caller: CallerContext = require_scope("TicketRead"),
     session: AsyncSession = Depends(get_db),
 ) -> dict:
-    return await IncidentRepository(session).get_trends(days)
+    repo = IncidentRepository(session)
+    await repo.mark_overdue_sla_breached()
+    return await repo.get_trends(days)
 
 
 @router.get("/sla_compliance")
@@ -32,7 +36,9 @@ async def get_sla_compliance(
     caller: CallerContext = require_scope("TicketRead"),
     session: AsyncSession = Depends(get_db),
 ) -> dict:
-    return await IncidentRepository(session).get_sla_compliance(days)
+    repo = IncidentRepository(session)
+    await repo.mark_overdue_sla_breached()
+    return await repo.get_sla_compliance(days)
 
 
 @router.get("/top_categories")
@@ -42,4 +48,17 @@ async def get_top_categories(
     caller: CallerContext = require_scope("TicketRead"),
     session: AsyncSession = Depends(get_db),
 ) -> list:
-    return await IncidentRepository(session).get_top_categories(days, limit)
+    repo = IncidentRepository(session)
+    await repo.mark_overdue_sla_breached()
+    return await repo.get_top_categories(days, limit)
+
+
+@router.get("/ops_kpis")
+async def get_ops_kpis(
+    days: int = Query(30, ge=1, le=365),
+    caller: CallerContext = require_scope("TicketRead"),
+    session: AsyncSession = Depends(get_db),
+) -> dict:
+    repo = IncidentRepository(session)
+    await repo.mark_overdue_sla_breached()
+    return await repo.get_ops_kpis(days)

@@ -605,7 +605,7 @@ export default function IncidentDetail() {
               >
                 {priorities?.map(p => (
                   <option key={p.level} value={p.level}>{p.name}</option>
-                )) ?? [1, 2, 3, 4].map(n => <option key={n} value={n}>P{n}</option>)}
+                )) ?? [0, 1, 2, 3, 4].map(n => <option key={n} value={n}>P{n}</option>)}
               </select>
             ) : (
               <PriorityBadge priority={incident.priority} priorities={priorities} />

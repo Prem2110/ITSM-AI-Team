@@ -179,3 +179,40 @@ async def test_summary_breached_filter(client, test_db):
     assert r.status_code == 200
     data = r.json()
     assert data["breached"] >= 1
+
+
+async def test_summary_refreshes_overdue_sla_before_counting(client, test_db):
+    await _seed_both(test_db)
+    inc = await _create(client, AGENT_H)
+    async with test_db() as session:
+        from app.repositories.incident_repository import IncidentRepository
+        from app.utils import utcnow
+        past = utcnow().replace(year=2020)
+        await IncidentRepository(session).update(inc["id"], {"sla_resolution_due": past, "sla_breached": False})
+        await session.commit()
+
+    r = await client.get("/api/dashboard/summary", headers=AGENT_H)
+    assert r.status_code == 200
+    assert r.json()["breached"] >= 1
+
+
+async def test_ops_kpis_shape(client, test_db):
+    await _seed_both(test_db)
+    r = await client.get("/api/dashboard/ops_kpis?days=30", headers=AGENT_H)
+    assert r.status_code == 200
+    data = r.json()
+    assert "avg_resolution_hours" in data
+    assert "reopened" in data
+    assert "overdue_open" in data
+
+
+async def test_ops_kpis_counts_reopened(client, test_db):
+    from app.utils import utcnow
+    await _seed_both(test_db)
+    inc = await _create(client, AGENT_H)
+    await _force_state(test_db, inc["id"], "resolved", {"resolved_at": utcnow()})
+    await _force_state(test_db, inc["id"], "in_progress")
+
+    r = await client.get("/api/dashboard/ops_kpis?days=30", headers=AGENT_H)
+    assert r.status_code == 200
+    assert r.json()["reopened"] >= 1

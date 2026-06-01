@@ -13,7 +13,7 @@ export interface IncidentListItem {
   number: string
   title: string
   state: IncidentState
-  priority: 1 | 2 | 3 | 4
+  priority: 0 | 1 | 2 | 3 | 4
   category: string
   assignee_id: string | null
   assignee_name: string | null
@@ -35,7 +35,7 @@ export interface Incident {
   title: string
   description: string
   state: IncidentState
-  priority: 1 | 2 | 3 | 4
+  priority: 0 | 1 | 2 | 3 | 4
   category: string
   source: IncidentSource
   requester_id: string

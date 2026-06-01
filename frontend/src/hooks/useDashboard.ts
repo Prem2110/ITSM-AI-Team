@@ -4,6 +4,7 @@ import {
   getDashboardTrends,
   getDashboardSlaCompliance,
   getDashboardTopCategories,
+  getDashboardOpsKpis,
 } from '@/api/dashboard'
 import { STALE } from './staleTime'
 
@@ -35,6 +36,14 @@ export function useDashboardTopCategories(days = 30, limit = 5) {
   return useQuery({
     queryKey: ['dashboard-categories', days, limit],
     queryFn: () => getDashboardTopCategories(days, limit),
+    staleTime: STALE.dashboard,
+  })
+}
+
+export function useDashboardOpsKpis(days = 30) {
+  return useQuery({
+    queryKey: ['dashboard-ops-kpis', days],
+    queryFn: () => getDashboardOpsKpis(days),
     staleTime: STALE.dashboard,
   })
 }

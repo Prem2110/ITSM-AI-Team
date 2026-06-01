@@ -138,6 +138,33 @@ async def test_transition_requester_cannot_close_other_ticket(db_session):
     assert exc_info.value.status_code == 403
 
 
+async def test_reopen_clears_terminal_timestamps(db_session):
+    _, agent_ctx = await _make_agent(db_session)
+    svc = IncidentService(db_session)
+    req = IncidentCreateRequest(title="Reopen me", description="d", priority=3, category="Network")
+    inc = await svc.create_incident(req, agent_ctx)
+    await db_session.flush()
+
+    from app.repositories.incident_repository import IncidentRepository
+    await IncidentRepository(db_session).update(inc.id, {"state": "in_progress"})
+    await db_session.flush()
+    resolved = await svc.transition_incident(
+        inc.id,
+        TransitionRequest(to_state="resolved", resolution_code="Fixed", resolution_notes="done"),
+        agent_ctx,
+    )
+    assert resolved.resolved_at is not None
+
+    reopened = await svc.transition_incident(
+        inc.id,
+        TransitionRequest(to_state="in_progress"),
+        agent_ctx,
+    )
+    assert reopened.state == "in_progress"
+    assert reopened.resolved_at is None
+    assert reopened.closed_at is None
+
+
 async def test_sla_breach_check_marks_overdue(db_session):
     _, agent_ctx = await _make_agent(db_session)
     svc = IncidentService(db_session)
@@ -156,3 +183,47 @@ async def test_sla_breach_check_marks_overdue(db_session):
     await svc.check_and_update_sla_breach(inc)
     refreshed = await IncidentRepository(db_session).get_by_id(inc.id)
     assert refreshed.sla_breached is True
+
+
+async def test_update_incident_returns_409_on_concurrent_write(db_session):
+    _, agent_ctx = await _make_agent(db_session)
+    svc = IncidentService(db_session)
+    req = IncidentCreateRequest(title="Race", description="d", priority=3, category="Network")
+    inc = await svc.create_incident(req, agent_ctx)
+    await db_session.flush()
+
+    async def _always_conflict(*args, **kwargs):
+        return False
+
+    svc._inc.update_if_current = _always_conflict  # type: ignore[method-assign]
+    with pytest.raises(HTTPException) as exc_info:
+        await svc.update_incident(inc.id, IncidentPatchRequest(title="new"), agent_ctx)
+    assert exc_info.value.status_code == 409
+
+
+async def test_on_hold_pauses_and_resumes_sla_due(db_session):
+    _, agent_ctx = await _make_agent(db_session)
+    svc = IncidentService(db_session)
+    req = IncidentCreateRequest(title="Pause SLA", description="d", priority=3, category="Network")
+    inc = await svc.create_incident(req, agent_ctx)
+    await db_session.flush()
+
+    original_due = inc.sla_resolution_due
+    assert original_due is not None
+
+    await svc.transition_incident(inc.id, TransitionRequest(to_state="assigned"), agent_ctx)
+    await svc.transition_incident(inc.id, TransitionRequest(to_state="in_progress"), agent_ctx)
+    held = await svc.transition_incident(inc.id, TransitionRequest(to_state="on_hold"), agent_ctx)
+    assert held.sla_paused_at is not None
+
+    from app.repositories.incident_repository import IncidentRepository
+    from datetime import timedelta
+    paused_at = held.sla_paused_at
+    assert paused_at is not None
+    await IncidentRepository(db_session).update(inc.id, {"sla_paused_at": paused_at - timedelta(hours=2)})
+    await db_session.flush()
+
+    resumed = await svc.transition_incident(inc.id, TransitionRequest(to_state="in_progress"), agent_ctx)
+    assert resumed.sla_paused_at is None
+    assert resumed.sla_resolution_due is not None
+    assert resumed.sla_resolution_due >= original_due + timedelta(hours=2)

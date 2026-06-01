@@ -1,7 +1,7 @@
 from __future__ import annotations
 import uuid
 from datetime import datetime, timedelta
-from sqlalchemy import select, func
+from sqlalchemy import select, func, update
 from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession
 from ..models.incident import Incident
@@ -13,12 +13,13 @@ from ..utils import utcnow
 _INCIDENT_UPDATABLE = frozenset({
     "title", "description", "priority", "category", "assignee_id",
     "state", "resolution_code", "resolution_notes",
-    "resolved_at", "closed_at", "sla_breached", "sla_resolution_due", "updated_at",
+    "resolved_at", "closed_at", "sla_breached", "sla_resolution_due", "sla_paused_at", "updated_at",
 })
 
 _OPEN_STATES_EXCL = frozenset({"resolved", "closed"})
 
 _CLOSED_STATES = frozenset({"resolved", "closed"})
+_SLA_PAUSED_STATE = "on_hold"
 
 
 def _sla_due(priority: int, created_at: datetime, sla_targets: dict | None = None) -> datetime:
@@ -26,7 +27,7 @@ def _sla_due(priority: int, created_at: datetime, sla_targets: dict | None = Non
         hours_val = sla_targets.get(str(priority))
         if hours_val is not None:
             return created_at + timedelta(hours=int(hours_val))
-    hours = app_config.priorities[priority - 1].sla_hours
+    hours = app_config.priorities[priority].sla_hours
     return created_at + timedelta(hours=hours)
 
 
@@ -126,6 +127,20 @@ class IncidentRepository:
         result = await self.session.execute(query)
         return list(result.scalars().all())
 
+    async def mark_overdue_sla_breached(self) -> None:
+        now = utcnow()
+        await self.session.execute(
+            update(Incident)
+            .where(
+                Incident.sla_breached == False,  # noqa: E712
+                Incident.state.notin_(_CLOSED_STATES),
+                Incident.state != _SLA_PAUSED_STATE,
+                Incident.sla_resolution_due.is_not(None),
+                Incident.sla_resolution_due < now,
+            )
+            .values(sla_breached=True, updated_at=now)
+        )
+
     async def count(
         self,
         state: str | None = None,
@@ -165,6 +180,25 @@ class IncidentRepository:
                 raise ValueError(f"Field '{k}' is not updatable")
             setattr(incident, k, v)
         return incident
+
+    async def update_if_current(
+        self,
+        incident_id: str,
+        expected_updated_at: datetime,
+        fields: dict,
+    ) -> bool:
+        for k in fields:
+            if k not in _INCIDENT_UPDATABLE:
+                raise ValueError(f"Field '{k}' is not updatable")
+        result = await self.session.execute(
+            update(Incident)
+            .where(
+                Incident.id == incident_id,
+                Incident.updated_at == expected_updated_at,
+            )
+            .values(**fields)
+        )
+        return result.rowcount == 1
 
     async def get_dashboard_summary(self, caller_user_id: str) -> dict:
         my_open = (await self.session.execute(
@@ -277,6 +311,65 @@ class IncidentRepository:
             "compliance_pct": round(met / total * 100, 1),
             "met": met,
             "total": total,
+        }
+
+    async def list_auto_escalation_candidates(self, limit: int = 200) -> list[Incident]:
+        result = await self.session.execute(
+            select(Incident)
+            .where(
+                Incident.sla_breached == True,  # noqa: E712
+                Incident.state.notin_(_CLOSED_STATES),
+                Incident.priority > 0,
+            )
+            .order_by(Incident.updated_at.asc())
+            .limit(limit)
+        )
+        return list(result.scalars().all())
+
+    async def get_ops_kpis(self, days: int) -> dict:
+        now = utcnow()
+        since = now - timedelta(days=days)
+
+        resolved_rows = (
+            await self.session.execute(
+                select(Incident.created_at, Incident.resolved_at).where(
+                    Incident.resolved_at.is_not(None),
+                    Incident.resolved_at >= since,
+                )
+            )
+        ).all()
+        durations_hours: list[float] = []
+        for row in resolved_rows:
+            if row.created_at is None or row.resolved_at is None:
+                continue
+            durations_hours.append((row.resolved_at - row.created_at).total_seconds() / 3600.0)
+        avg_resolution_hours = (
+            sum(durations_hours) / len(durations_hours) if durations_hours else 0.0
+        )
+
+        reopened = (
+            await self.session.execute(
+                select(func.count()).select_from(Incident).where(
+                    Incident.resolved_at.is_not(None),
+                    Incident.state.in_(("in_progress", "assigned", "on_hold")),
+                    Incident.updated_at >= since,
+                )
+            )
+        ).scalar_one()
+
+        overdue_open = (
+            await self.session.execute(
+                select(func.count()).select_from(Incident).where(
+                    Incident.sla_breached == True,  # noqa: E712
+                    Incident.state.notin_(_CLOSED_STATES),
+                )
+            )
+        ).scalar_one()
+
+        return {
+            "avg_resolution_hours": round(float(avg_resolution_hours), 2),
+            "reopened": reopened,
+            "overdue_open": overdue_open,
         }
 
     async def get_top_categories(self, days: int, limit: int) -> list[dict]:

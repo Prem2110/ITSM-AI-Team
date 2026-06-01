@@ -75,7 +75,7 @@ export default function Setup() {
     timezone: getBrowserTimezone(),
     adminName: '',
     adminEmail: '',
-    slaTargets: { '1': 4, '2': 8, '3': 24, '4': 72 },
+    slaTargets: { '0': 1, '1': 4, '2': 8, '3': 24, '4': 72 },
     resolutionCodes: [...DEFAULT_RESOLUTION_CODES],
   })
 
@@ -320,7 +320,7 @@ export default function Setup() {
                   </tr>
                 </thead>
                 <tbody>
-                  {[1, 2, 3, 4].map((level) => (
+                  {[0, 1, 2, 3, 4].map((level) => (
                       <tr key={level} className="border-b border-surface-100">
                         <td className="py-2">
                           <PriorityBadge priority={level} priorities={priorities} />
@@ -413,7 +413,7 @@ export default function Setup() {
                   <div className="text-2xs font-semibold text-surface-400 uppercase tracking-widest mb-2">
                     SLA Targets
                   </div>
-                  {[1, 2, 3, 4].map((level) => (
+                  {[0, 1, 2, 3, 4].map((level) => (
                       <div key={level} className="flex justify-between items-center py-0.5">
                         <PriorityBadge priority={level} priorities={priorities} />
                         <span className="text-surface-700 font-medium">

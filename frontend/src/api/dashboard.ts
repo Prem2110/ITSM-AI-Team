@@ -26,6 +26,12 @@ export interface DashboardTopCategory {
   count: number
 }
 
+export interface DashboardOpsKpis {
+  avg_resolution_hours: number
+  reopened: number
+  overdue_open: number
+}
+
 export async function getDashboardSummary(): Promise<DashboardSummary> {
   const { data } = await client.get('/dashboard/summary')
   return data
@@ -43,5 +49,10 @@ export async function getDashboardSlaCompliance(days = 30): Promise<DashboardSla
 
 export async function getDashboardTopCategories(days = 30, limit = 5): Promise<DashboardTopCategory[]> {
   const { data } = await client.get('/dashboard/top_categories', { params: { days, limit } })
+  return data
+}
+
+export async function getDashboardOpsKpis(days = 30): Promise<DashboardOpsKpis> {
+  const { data } = await client.get('/dashboard/ops_kpis', { params: { days } })
   return data
 }

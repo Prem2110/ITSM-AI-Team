@@ -10,7 +10,7 @@ router = APIRouter(prefix="/api/config", tags=["config"])
 @router.get("/priorities")
 async def get_priorities(caller: CallerContext = require_scope("TicketRead")) -> list[dict]:
     return [
-        {"level": i + 1, "name": p.name, "color": p.color, "sla_hours": p.sla_hours}
+        {"level": i, "name": p.name, "color": p.color, "sla_hours": p.sla_hours}
         for i, p in enumerate(app_config.priorities)
     ]
 

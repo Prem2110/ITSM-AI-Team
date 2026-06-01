@@ -1,6 +1,24 @@
 from __future__ import annotations
 from datetime import datetime
 from pydantic import BaseModel, field_validator
+from ..config import app_config
+
+
+def _validate_sla_target_keys(v: dict[str, int]) -> dict[str, int]:
+    expected_keys = {str(i) for i in range(1, len(app_config.priorities) + 1)}
+    actual_keys = set(v.keys())
+    missing = sorted(expected_keys - actual_keys)
+    extra = sorted(actual_keys - expected_keys)
+    if missing or extra:
+        problems: list[str] = []
+        if missing:
+            problems.append(f"missing keys: {missing}")
+        if extra:
+            problems.append(f"unknown keys: {extra}")
+        raise ValueError(
+            f"sla_targets must include exactly priority keys {sorted(expected_keys)} ({'; '.join(problems)})"
+        )
+    return v
 
 
 class AdminBootstrap(BaseModel):
@@ -28,7 +46,7 @@ class SetupCompleteRequest(BaseModel):
         for k, hours in v.items():
             if not isinstance(hours, int) or hours <= 0:
                 raise ValueError(f"sla_targets[{k}] must be a positive integer")
-        return v
+        return _validate_sla_target_keys(v)
 
     @field_validator("resolution_codes")
     @classmethod
@@ -44,6 +62,46 @@ class AppSettingsPatch(BaseModel):
     timezone: str | None = None
     sla_targets: dict[str, int] | None = None
     resolution_codes: list[str] | None = None
+
+    @field_validator("company_name")
+    @classmethod
+    def patch_company_name_not_empty(cls, v: str | None) -> str | None:
+        if v is None:
+            return v
+        value = v.strip()
+        if not value:
+            raise ValueError("company_name cannot be empty")
+        return value
+
+    @field_validator("timezone")
+    @classmethod
+    def patch_timezone_not_empty(cls, v: str | None) -> str | None:
+        if v is None:
+            return v
+        value = v.strip()
+        if not value:
+            raise ValueError("timezone cannot be empty")
+        return value
+
+    @field_validator("sla_targets")
+    @classmethod
+    def patch_sla_targets_positive(cls, v: dict[str, int] | None) -> dict[str, int] | None:
+        if v is None:
+            return v
+        for k, hours in v.items():
+            if not isinstance(hours, int) or hours <= 0:
+                raise ValueError(f"sla_targets[{k}] must be a positive integer")
+        return _validate_sla_target_keys(v)
+
+    @field_validator("resolution_codes")
+    @classmethod
+    def patch_resolution_codes_non_empty(cls, v: list[str] | None) -> list[str] | None:
+        if v is None:
+            return v
+        codes = [c.strip() for c in v if c.strip()]
+        if not codes:
+            raise ValueError("resolution_codes must contain at least one entry")
+        return codes
 
 
 class AppSettingsResponse(BaseModel):

@@ -141,7 +141,7 @@ function GeneralTab() {
 
   const [companyName, setCompanyName] = useState('')
   const [timezone, setTimezone]       = useState('UTC')
-  const [slaTargets, setSlaTargets]   = useState<Record<string, number>>({ '1': 4, '2': 8, '3': 24, '4': 72 })
+  const [slaTargets, setSlaTargets]   = useState<Record<string, number>>({ '0': 1, '1': 4, '2': 8, '3': 24, '4': 72 })
   const [codes, setCodes]             = useState<string[]>([])
   const [newCode, setNewCode]         = useState('')
   const [saving, setSaving]           = useState<string | null>(null)
@@ -151,7 +151,7 @@ function GeneralTab() {
     if (settings) {
       setCompanyName(settings.company_name)
       setTimezone(settings.timezone)
-      setSlaTargets(settings.sla_targets ?? { '1': 4, '2': 8, '3': 24, '4': 72 })
+      setSlaTargets(settings.sla_targets ?? { '0': 1, '1': 4, '2': 8, '3': 24, '4': 72 })
       setCodes(settings.resolution_codes ?? [])
     }
   }, [settings])
@@ -238,7 +238,7 @@ function GeneralTab() {
             </tr>
           </thead>
           <tbody>
-            {[1, 2, 3, 4].map(level => (
+            {[0, 1, 2, 3, 4].map(level => (
               <tr key={level} className="border-b border-surface-100">
                 <td className="py-2"><PriorityBadge priority={level} priorities={priorities} /></td>
                 <td className="py-2 flex justify-end">

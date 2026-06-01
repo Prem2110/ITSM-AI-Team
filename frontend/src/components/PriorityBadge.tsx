@@ -2,10 +2,11 @@ import type { Priority } from '@/types'
 
 // Hardcoded colors — config `color` field is a name ("red") not hex
 const PRIORITY_STYLES: Record<number, { bg: string; border: string; text: string; name: string }> = {
+  0: { bg: 'rgba(127,0,0,0.12)',   border: 'rgba(127,0,0,0.35)',   text: '#7f0000', name: 'Highly Critical' },
   1: { bg: 'rgba(220,38,38,0.10)', border: 'rgba(220,38,38,0.28)', text: '#b91c1c', name: 'Critical' },
   2: { bg: 'rgba(234,88,12,0.10)', border: 'rgba(234,88,12,0.28)', text: '#c2410c', name: 'High' },
-  3: { bg: 'rgba(202,138,4,0.10)', border: 'rgba(202,138,4,0.28)',  text: '#a16207', name: 'Medium' },
-  4: { bg: 'rgba(22,163,74,0.10)',  border: 'rgba(22,163,74,0.28)',  text: '#15803d', name: 'Low' },
+  3: { bg: 'rgba(202,138,4,0.10)', border: 'rgba(202,138,4,0.28)', text: '#a16207', name: 'Medium' },
+  4: { bg: 'rgba(22,163,74,0.10)',  border: 'rgba(22,163,74,0.28)', text: '#15803d', name: 'Low' },
 }
 
 interface Props {

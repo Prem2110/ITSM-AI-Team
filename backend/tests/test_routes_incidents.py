@@ -285,6 +285,24 @@ async def test_sla_breach_marked_on_get(client, test_db):
     assert resp.json()["sla_breached"] is True
 
 
+async def test_list_sla_filter_consistent_after_auto_breach_refresh(client, test_db):
+    await _seed_both(test_db)
+    inc = await _create_incident(client, AGENT_H)
+
+    async with test_db() as session:
+        from app.repositories.incident_repository import IncidentRepository
+        from app.utils import utcnow
+        past = utcnow().replace(year=2020)
+        await IncidentRepository(session).update(inc["id"], {"sla_resolution_due": past, "sla_breached": False})
+        await session.commit()
+
+    resp = await client.get("/api/incidents?sla_breached=false", headers=AGENT_H)
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["total"] == 0
+    assert len(data["items"]) == 0
+
+
 async def test_dashboard_summary(client, test_db):
     await _seed_both(test_db)
     await _create_incident(client, AGENT_H)
@@ -318,3 +336,78 @@ async def test_users_list_by_role(client, test_db):
     assert resp.status_code == 200
     users = resp.json()
     assert all(u["role"] == "agent" for u in users)
+
+
+async def test_on_hold_incident_not_auto_marked_sla_breached(client, test_db):
+    await _seed_both(test_db)
+    inc = await _create_incident(client, AGENT_H)
+
+    resp = await client.post(
+        f"/api/incidents/{inc['id']}/transition",
+        json={"to_state": "assigned"},
+        headers=AGENT_H,
+    )
+    assert resp.status_code == 200
+
+    resp = await client.post(
+        f"/api/incidents/{inc['id']}/transition",
+        json={"to_state": "in_progress"},
+        headers=AGENT_H,
+    )
+    assert resp.status_code == 200
+
+    resp = await client.post(
+        f"/api/incidents/{inc['id']}/transition",
+        json={"to_state": "on_hold"},
+        headers=AGENT_H,
+    )
+    assert resp.status_code == 200
+
+    async with test_db() as session:
+        from app.repositories.incident_repository import IncidentRepository
+        from app.utils import utcnow
+        past = utcnow().replace(year=2020)
+        await IncidentRepository(session).update(inc["id"], {"sla_resolution_due": past, "sla_breached": False})
+        await session.commit()
+
+    resp = await client.get("/api/incidents?sla_breached=true", headers=AGENT_H)
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["total"] == 0
+
+
+async def test_run_auto_escalations_lowers_priority_for_breached_open(client, test_db):
+    await _seed_both(test_db)
+    inc = await _create_incident(client, AGENT_H, priority=3)
+    async with test_db() as session:
+        from app.repositories.incident_repository import IncidentRepository
+        await IncidentRepository(session).update(inc["id"], {"sla_breached": True, "priority": 3})
+        await session.commit()
+
+    resp = await client.post("/api/incidents/escalations/run", headers=AGENT_H)
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["escalated"] >= 1
+
+    detail = await client.get(f"/api/incidents/{inc['id']}", headers=AGENT_H)
+    assert detail.status_code == 200
+    assert detail.json()["priority"] == 2
+
+
+async def test_run_auto_escalations_requires_agent_scope(client, test_db):
+    await _seed_both(test_db)
+    resp = await client.post("/api/incidents/escalations/run", headers=REQ_H)
+    assert resp.status_code == 403
+
+
+async def test_export_incidents_csv_returns_rows(client, test_db):
+    await _seed_both(test_db)
+    await _create_incident(client, AGENT_H, title="CSV 1")
+    await _create_incident(client, AGENT_H, title="CSV 2")
+
+    resp = await client.get("/api/incidents/reports/export.csv", headers=AGENT_H)
+    assert resp.status_code == 200
+    text = resp.text
+    assert "number,title,state,priority,category,requester_id,assignee_id,sla_breached,created_at,updated_at,resolved_at,closed_at" in text
+    assert "CSV 1" in text
+    assert "CSV 2" in text

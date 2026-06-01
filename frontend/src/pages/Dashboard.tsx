@@ -5,7 +5,7 @@ import {
   Tooltip, ResponsiveContainer, CartesianGrid,
 } from 'recharts'
 import { useTranslation } from 'react-i18next'
-import { useDashboard, useDashboardTrends, useDashboardSlaCompliance, useDashboardTopCategories } from '@/hooks/useDashboard'
+import { useDashboard, useDashboardTrends, useDashboardSlaCompliance, useDashboardTopCategories, useDashboardOpsKpis } from '@/hooks/useDashboard'
 import { usePriorities } from '@/hooks'
 
 // ─── Count-up ─────────────────────────────────────────────────────────────────
@@ -57,9 +57,10 @@ interface StatCardProps {
   href: string
   accent?: string
   loading: boolean
+  tooltip?: string
 }
 
-function StatCard({ label, value, href, accent = '#6366f1', loading }: StatCardProps) {
+function StatCard({ label, value, href, accent = '#6366f1', loading, tooltip }: StatCardProps) {
   const navigate = useNavigate()
   const count = useCountUp(loading ? 0 : (value ?? 0))
 
@@ -76,6 +77,7 @@ function StatCard({ label, value, href, accent = '#6366f1', loading }: StatCardP
       onClick={() => navigate(href)}
       className="stat-card bg-white border border-surface-200 px-4 pt-4 pb-5 text-left w-full animate-content-enter"
       style={{ borderRadius: 4 }}
+      title={tooltip}
     >
       <div className="text-2xs font-semibold text-surface-400 uppercase tracking-wider mb-1.5">
         {label}
@@ -241,6 +243,7 @@ function SlaWidget() {
 // ─── Priority Bar ─────────────────────────────────────────────────────────────
 
 const P_COLORS: Record<number, string> = {
+  0: '#7f0000',
   1: '#b91c1c',
   2: '#c2410c',
   3: '#a16207',
@@ -260,7 +263,7 @@ function PriorityBarChart() {
     )
   }
 
-  const chartData = [1, 2, 3, 4].map((level) => ({
+  const chartData = [0, 1, 2, 3, 4].map((level) => ({
     level,
     count: summary.by_priority[level] ?? 0,
   }))
@@ -268,6 +271,7 @@ function PriorityBarChart() {
   const CustomTick = ({ x, y, payload }: any) => {
     const level = payload.value as number
     const style = {
+      0: { bg: 'rgba(127,0,0,0.12)',   border: 'rgba(127,0,0,0.35)',   text: '#7f0000', name: 'Highly Critical' },
       1: { bg: 'rgba(220,38,38,0.10)', border: 'rgba(220,38,38,0.28)', text: '#b91c1c', name: 'Critical' },
       2: { bg: 'rgba(234,88,12,0.10)', border: 'rgba(234,88,12,0.28)', text: '#c2410c', name: 'High' },
       3: { bg: 'rgba(202,138,4,0.10)', border: 'rgba(202,138,4,0.28)', text: '#a16207', name: 'Medium' },
@@ -377,6 +381,35 @@ function TopCategories() {
   )
 }
 
+function OpsKpis() {
+  const { data, isLoading } = useDashboardOpsKpis(30)
+  if (isLoading || !data) {
+    return (
+      <Panel title="Ops KPIs (30d)" loading>
+        <div />
+      </Panel>
+    )
+  }
+  return (
+    <Panel title="Ops KPIs (30d)">
+      <div className="grid grid-cols-3 gap-3">
+        <div className="bg-surface-50 border border-surface-200 px-3 py-2 rounded" title="Average time from incident creation to resolution over the last 30 days.">
+          <div className="text-2xs text-surface-500 uppercase tracking-wider mb-1">Avg Resolution (hrs)</div>
+          <div className="text-lg font-semibold text-surface-800 tabular-nums">{data.avg_resolution_hours.toFixed(2)}</div>
+        </div>
+        <div className="bg-surface-50 border border-surface-200 px-3 py-2 rounded" title="Incidents that were resolved and then moved back to an active state in the last 30 days.">
+          <div className="text-2xs text-surface-500 uppercase tracking-wider mb-1">Reopened</div>
+          <div className="text-lg font-semibold text-surface-800 tabular-nums">{data.reopened}</div>
+        </div>
+        <div className="bg-surface-50 border border-surface-200 px-3 py-2 rounded" title="Open incidents that are currently past SLA due time.">
+          <div className="text-2xs text-surface-500 uppercase tracking-wider mb-1">Overdue Open</div>
+          <div className="text-lg font-semibold text-surface-800 tabular-nums">{data.overdue_open}</div>
+        </div>
+      </div>
+    </Panel>
+  )
+}
+
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function Dashboard() {
@@ -402,10 +435,10 @@ export default function Dashboard() {
 
           {/* Row 1 — Stat cards */}
           <div className="grid grid-cols-4 gap-3 mb-4">
-            <StatCard label={t('dashboard.myOpen')}      value={summary?.my_open}   href="/incidents?assignee_id=me&state=new,assigned,in_progress,on_hold" accent="#6366f1" loading={summaryLoad} />
-            <StatCard label={t('dashboard.allOpen')}     value={summary?.all_open}  href="/incidents?state=new,assigned,in_progress,on_hold"                 accent="#0ea5e9" loading={summaryLoad} />
-            <StatCard label={t('dashboard.unassigned')}  value={summary?.unassigned} href="/incidents?assignee_id=unassigned"                               accent="#f59e0b" loading={summaryLoad} />
-            <StatCard label={t('dashboard.breachedSlas')} value={summary?.breached}  href="/incidents?sla_breached=true"                                    accent="#ef4444" loading={summaryLoad} />
+            <StatCard label={t('dashboard.myOpen')}      value={summary?.my_open}   href="/incidents?assignee_id=me&state=new,assigned,in_progress,on_hold" accent="#6366f1" loading={summaryLoad} tooltip="Incidents assigned to you that are currently open." />
+            <StatCard label={t('dashboard.allOpen')}     value={summary?.all_open}  href="/incidents?state=new,assigned,in_progress,on_hold"                 accent="#0ea5e9" loading={summaryLoad} tooltip="All incidents that are currently open across the system." />
+            <StatCard label={t('dashboard.unassigned')}  value={summary?.unassigned} href="/incidents?assignee_id=unassigned"                               accent="#f59e0b" loading={summaryLoad} tooltip="Open incidents that do not have an assignee yet." />
+            <StatCard label={t('dashboard.breachedSlas')} value={summary?.breached}  href="/incidents?sla_breached=true"                                    accent="#ef4444" loading={summaryLoad} tooltip="Open incidents that have crossed SLA due time." />
           </div>
 
           {/* Row 2 — Trend + SLA */}
@@ -418,6 +451,10 @@ export default function Dashboard() {
           <div className="grid grid-cols-2 gap-3">
             <PriorityBarChart />
             <TopCategories />
+          </div>
+
+          <div className="mt-4">
+            <OpsKpis />
           </div>
 
         </div>

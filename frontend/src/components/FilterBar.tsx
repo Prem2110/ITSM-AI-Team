@@ -11,8 +11,9 @@ const STATE_LABELS: Record<string, string> = {
   on_hold:'On Hold', resolved:'Resolved', closed:'Closed',
 }
 const PRIORITY_OPTIONS = [
+  { value: '0', label: 'Highly Critical' },
   { value: '1', label: 'Critical' }, { value: '2', label: 'High' },
-  { value: '3', label: 'Medium' },  { value: '4', label: 'Low' },
+  { value: '3', label: 'Medium' },   { value: '4', label: 'Low' },
 ]
 const ADD_FILTER_FIELDS = [
   { key: 'state', label: 'State' },
@@ -117,41 +118,41 @@ export function FilterBar({ filterState, searchInputRef }: Props) {
             onRemove={() => clearFilter(f.key)}
           />
         ))}
-        {activeFilters.length > 1 && (
+        {activeFilters.length > 0 && (
           <button onClick={clearAllFilters} className="text-2xs text-surface-400 hover:text-surface-600 whitespace-nowrap ml-1">
-            Clear all
+            Clear
           </button>
         )}
+      </div>
 
-        {/* Add filter */}
-        <div ref={addRef} className="relative flex-none">
-          <button
-            onClick={() => { setAddOpen(o => !o); setAddField(null) }}
-            className="inline-flex items-center gap-1 text-2xs text-surface-500 hover:text-surface-700"
-            style={{ height: 22, padding: '0 4px' }}
+      {/* Add filter — outside overflow container so dropdown isn't clipped */}
+      <div ref={addRef} className="relative flex-none">
+        <button
+          onClick={() => { setAddOpen(o => !o); setAddField(null) }}
+          className="inline-flex items-center gap-1 text-2xs text-surface-500 hover:text-surface-700"
+          style={{ height: 22, padding: '0 4px' }}
+        >
+          <Plus size={11} strokeWidth={2.5} />
+          Add filter
+        </button>
+        {addOpen && (
+          <div
+            className="absolute left-0 top-6 bg-white border border-surface-200 shadow-md z-50 min-w-[140px]"
+            style={{ borderRadius: 3 }}
           >
-            <Plus size={11} strokeWidth={2.5} />
-            Add filter
-          </button>
-          {addOpen && (
-            <div
-              className="absolute left-0 top-6 bg-white border border-surface-200 shadow-md z-50 min-w-[140px]"
-              style={{ borderRadius: 3 }}
-            >
-              {addField === null
-                ? ADD_FILTER_FIELDS.map(f => (
-                    <button key={f.key} onClick={() => setAddField(f.key)}
-                      className="flex items-center justify-between w-full text-left px-3 py-1.5 text-xs text-surface-700 hover:bg-surface-100"
-                    >
-                      {f.label}
-                      <span className="text-surface-400">›</span>
-                    </button>
-                  ))
-                : renderValuePicker(addField)
-              }
-            </div>
-          )}
-        </div>
+            {addField === null
+              ? ADD_FILTER_FIELDS.map(f => (
+                  <button key={f.key} onClick={() => setAddField(f.key)}
+                    className="flex items-center justify-between w-full text-left px-3 py-1.5 text-xs text-surface-700 hover:bg-surface-100"
+                  >
+                    {f.label}
+                    <span className="text-surface-400">›</span>
+                  </button>
+                ))
+              : renderValuePicker(addField)
+            }
+          </div>
+        )}
       </div>
 
       {/* Search */}

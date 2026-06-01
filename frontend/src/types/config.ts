@@ -1,5 +1,5 @@
 export interface Priority {
-  level: 1 | 2 | 3 | 4
+  level: 0 | 1 | 2 | 3 | 4
   name: string
   color: string
   sla_hours: number
