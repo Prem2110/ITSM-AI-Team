@@ -1007,7 +1007,7 @@ export function SettingsModal({ open, defaultTab = 'general', onClose }: Props) 
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      transition={{ duration: 0.18 }}
+      transition={{ duration: 0.28 }}
       style={{
         position: 'fixed', inset: 0, zIndex: 1000,
         background: 'rgba(15, 23, 42, 0.45)',
@@ -1018,11 +1018,27 @@ export function SettingsModal({ open, defaultTab = 'general', onClose }: Props) 
     >
       <motion.div
         onClick={e => e.stopPropagation()}
-        initial={{ opacity: 0, scale: 0.96, y: 10 }}
-        animate={{ opacity: 1, scale: 1, y: 0 }}
-        exit={{ opacity: 0, scale: 0.96, y: 6 }}
-        transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
+        initial={{ opacity: 0.6, scaleX: 0.06, scaleY: 0.35, y: '38vh' }}
+        animate={{
+          opacity: 1, scaleX: 1, scaleY: 1, y: 0,
+          transition: {
+            opacity: { duration: 0.22 },
+            scaleY: { duration: 0.48, ease: [0.22, 1, 0.36, 1] },
+            scaleX: { duration: 0.38, delay: 0.12, ease: [0.22, 1, 0.36, 1] },
+            y:      { duration: 0.48, ease: [0.22, 1, 0.36, 1] },
+          },
+        }}
+        exit={{
+          opacity: 0, scaleX: 0.06, scaleY: 0.3, y: '38vh',
+          transition: {
+            opacity: { duration: 0.28, delay: 0.06 },
+            scaleX: { duration: 0.18, ease: 'easeIn' },
+            scaleY: { duration: 0.32, delay: 0.06, ease: 'easeIn' },
+            y:      { duration: 0.32, delay: 0.04, ease: 'easeIn' },
+          },
+        }}
         style={{
+          transformOrigin: 'bottom center',
           background: 'var(--bg-primary)',
           border: '1px solid var(--border-color)',
           borderRadius: 6,
