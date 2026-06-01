@@ -6,9 +6,6 @@ from ..config import app_config
 from .user import UserResponse
 from .incident_event import IncidentEventResponse
 
-_VALID_SOURCES = frozenset({"web", "email", "classifier_escalation", "fix_failed_escalation"})
-
-
 class IncidentCreate(BaseModel):
     """Internal schema used by IncidentService → IncidentRepository.create()."""
     title: str
@@ -29,8 +26,8 @@ class IncidentCreate(BaseModel):
     @field_validator("source")
     @classmethod
     def valid_source(cls, v: str) -> str:
-        if v not in _VALID_SOURCES:
-            raise ValueError(f"source must be one of: {sorted(_VALID_SOURCES)}")
+        if not v.strip():
+            raise ValueError("source cannot be blank")
         return v
 
 
@@ -42,7 +39,7 @@ class IncidentCreateRequest(BaseModel):
     description: str
     priority: int
     category: str
-    source: str = "web"
+    source: str = "Web Portal"
     assignee_id: str | None = None
     requester_id: str | None = None  # defaults to caller.user_id if omitted
 
@@ -56,8 +53,8 @@ class IncidentCreateRequest(BaseModel):
     @field_validator("source")
     @classmethod
     def valid_source(cls, v: str) -> str:
-        if v not in _VALID_SOURCES:
-            raise ValueError(f"source must be one of: {sorted(_VALID_SOURCES)}")
+        if not v.strip():
+            raise ValueError("source cannot be blank")
         return v
 
 
@@ -81,8 +78,8 @@ class IncidentPatchRequest(BaseModel):
     @field_validator("category")
     @classmethod
     def valid_category(cls, v: str | None) -> str | None:
-        if v is not None and v not in app_config.categories:
-            raise ValueError(f"category must be one of: {app_config.categories}")
+        if v is not None and not v.strip():
+            raise ValueError("category cannot be blank")
         return v
 
 

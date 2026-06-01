@@ -4,7 +4,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { ChevronLeft, AlertTriangle, ChevronDown, Loader2, Brain } from 'lucide-react'
 import { Skeleton } from '@/components/Skeleton'
 import { useIncident, useMe, useUsers, usePriorities, useCategories, useStates, useResolutionCodes } from '@/hooks'
-import { useAIStatus, useSimilarIncidents } from '@/hooks/useAI'
+import { useAIStatus, useSimilarIncidents, useSummarizeIncident, useDraftReply, useDraftResolution } from '@/hooks/useAI'
 import { patchIncident, transitionIncident } from '@/api/incidents'
 import { createEvent } from '@/api/events'
 import { StateBadge } from '@/components/StateBadge'
@@ -203,6 +203,10 @@ export default function IncidentDetail() {
     isLoading: similarLoading,
     error: similarError,
   } = useSimilarIncidents(id!, aiPanelOpen && aiEnabled)
+
+  const summarizeMut = useSummarizeIncident()
+  const draftReplyMut = useDraftReply()
+  const draftResMut = useDraftResolution()
 
   const patchMut = useMutation({
     mutationFn: (fields: Parameters<typeof patchIncident>[1]) => patchIncident(id!, fields),
@@ -478,6 +482,20 @@ export default function IncidentDetail() {
                 className="w-full text-xs border border-surface-200 bg-white px-2 py-1 focus:outline-none focus:border-surface-400 resize-none"
                 style={{ borderRadius: 2 }}
               />
+              {aiEnabled && (
+                <button
+                  type="button"
+                  onClick={async () => {
+                    const r = await draftResMut.mutateAsync(id!)
+                    setResNotes(r.notes)
+                  }}
+                  disabled={draftResMut.isPending}
+                  className="mt-1 flex items-center gap-1 text-2xs text-indigo-600 hover:text-indigo-800 disabled:opacity-50 transition-colors"
+                >
+                  <Brain size={10} className="flex-none" />
+                  {draftResMut.isPending ? 'Drafting…' : 'Draft with AI'}
+                </button>
+              )}
             </div>
             <div className="flex flex-col gap-1.5 pt-5 flex-none">
               <SpinButton
@@ -568,62 +586,106 @@ export default function IncidentDetail() {
               <div className="flex items-center gap-2 mb-3">
                 <Brain size={12} className="flex-none" style={{ color: '#6366f1' }} />
                 <span className="text-2xs font-semibold uppercase tracking-wider" style={{ color: '#4f46e5' }}>
-                  AI Help — Similar Incidents
+                  AI Help
                 </span>
               </div>
 
-              {similarLoading ? (
-                <div className="flex items-center gap-2 text-xs text-surface-500">
-                  <Loader2 size={13} className="animate-spin" style={{ color: '#818cf8' }} />
-                  Analyzing similar incidents…
-                </div>
-              ) : similarError ? (
-                <div className="text-xs text-red-500">Failed to load AI suggestions.</div>
-              ) : !similarIncs?.length ? (
-                <div className="text-xs text-surface-400 italic">No similar resolved incidents found.</div>
-              ) : (
-                <div className="flex flex-col gap-2">
-                  {similarIncs.map(sim => (
-                    <div
-                      key={sim.id}
-                      style={{
-                        background: 'rgba(255,255,255,0.75)',
-                        border: '1px solid rgba(99,102,241,0.18)',
-                        borderRadius: 2,
-                        padding: '8px 10px',
-                      }}
+              {/* Thread summary */}
+              <div className="mb-3">
+                <div className="flex items-center gap-2 mb-1.5">
+                  <span className="text-2xs font-semibold text-surface-500 uppercase tracking-wider">Thread Summary</span>
+                  {!summarizeMut.data && !summarizeMut.isPending && (
+                    <button
+                      onClick={() => summarizeMut.mutate(id!)}
+                      className="text-2xs text-indigo-600 hover:text-indigo-800 border border-indigo-200 px-2 py-0.5 hover:bg-indigo-50 transition-colors"
+                      style={{ borderRadius: 2 }}
                     >
-                      <div className="flex items-start gap-2 mb-1">
-                        <span
-                          className="font-mono text-2xs flex-none"
-                          style={{
-                            padding: '1px 5px', borderRadius: 3,
-                            background: 'rgba(99,102,241,0.1)',
-                            border: '1px solid rgba(99,102,241,0.22)',
-                            color: '#4f46e5',
-                          }}
-                        >
-                          {sim.number}
-                        </span>
-                        <span className="text-xs font-medium text-surface-800 leading-tight">{sim.title}</span>
-                      </div>
-                      <p className="text-2xs text-surface-500 leading-relaxed mb-1">{sim.similarity_reason}</p>
-                      {sim.resolution_summary && (
-                        <div
-                          className="text-2xs text-surface-700 leading-relaxed"
-                          style={{
-                            borderTop: '1px solid rgba(99,102,241,0.12)',
-                            paddingTop: 5, marginTop: 4,
-                          }}
-                        >
-                          <span className="font-semibold" style={{ color: '#4f46e5' }}>Resolution: </span>
-                          {sim.resolution_summary}
-                        </div>
-                      )}
-                    </div>
-                  ))}
+                      Summarize
+                    </button>
+                  )}
+                  {summarizeMut.data && (
+                    <button onClick={() => summarizeMut.reset()} className="text-2xs text-surface-400 hover:text-surface-600">
+                      Clear
+                    </button>
+                  )}
                 </div>
-              )}
+                {summarizeMut.isPending && (
+                  <div className="flex items-center gap-2 text-xs text-surface-500">
+                    <Loader2 size={12} className="animate-spin" style={{ color: '#818cf8' }} />
+                    Summarizing…
+                  </div>
+                )}
+                {summarizeMut.isError && <div className="text-xs text-red-500">Failed to summarize.</div>}
+                {summarizeMut.data?.summary && (
+                  <p
+                    className="text-xs text-surface-700 leading-relaxed"
+                    style={{ background: 'rgba(255,255,255,0.7)', border: '1px solid rgba(99,102,241,0.15)', borderRadius: 2, padding: '6px 8px' }}
+                  >
+                    {summarizeMut.data.summary}
+                  </p>
+                )}
+                {!summarizeMut.data && !summarizeMut.isPending && !summarizeMut.isError && (
+                  <p className="text-xs text-surface-400 italic">Click Summarize to condense the thread into a brief.</p>
+                )}
+              </div>
+
+              <div style={{ borderTop: '1px solid rgba(99,102,241,0.12)', marginBottom: 10 }} />
+
+              {/* Similar incidents */}
+              <div>
+                <span className="text-2xs font-semibold text-surface-500 uppercase tracking-wider">Similar Incidents</span>
+                <div className="mt-1.5">
+                  {similarLoading ? (
+                    <div className="flex items-center gap-2 text-xs text-surface-500">
+                      <Loader2 size={13} className="animate-spin" style={{ color: '#818cf8' }} />
+                      Analyzing similar incidents…
+                    </div>
+                  ) : similarError ? (
+                    <div className="text-xs text-red-500">Failed to load AI suggestions.</div>
+                  ) : !similarIncs?.length ? (
+                    <div className="text-xs text-surface-400 italic">No similar resolved incidents found.</div>
+                  ) : (
+                    <div className="flex flex-col gap-2">
+                      {similarIncs.map(sim => (
+                        <div
+                          key={sim.id}
+                          style={{
+                            background: 'rgba(255,255,255,0.75)',
+                            border: '1px solid rgba(99,102,241,0.18)',
+                            borderRadius: 2,
+                            padding: '8px 10px',
+                          }}
+                        >
+                          <div className="flex items-start gap-2 mb-1">
+                            <span
+                              className="font-mono text-2xs flex-none"
+                              style={{
+                                padding: '1px 5px', borderRadius: 3,
+                                background: 'rgba(99,102,241,0.1)',
+                                border: '1px solid rgba(99,102,241,0.22)',
+                                color: '#4f46e5',
+                              }}
+                            >
+                              {sim.number}
+                            </span>
+                            <span className="text-xs font-medium text-surface-800 leading-tight">{sim.title}</span>
+                          </div>
+                          <p className="text-2xs text-surface-500 leading-relaxed mb-1">{sim.similarity_reason}</p>
+                          {sim.resolution_summary && (
+                            <div
+                              className="text-2xs text-surface-700 leading-relaxed"
+                              style={{ borderTop: '1px solid rgba(99,102,241,0.12)', paddingTop: 5, marginTop: 4 }}
+                            >
+                              <span className="font-semibold" style={{ color: '#4f46e5' }}>Resolution: </span>
+                              {sim.resolution_summary}
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
             </div>
           )}
 
@@ -674,7 +736,21 @@ export default function IncidentDetail() {
                 className="w-full text-xs border border-surface-200 bg-white focus:outline-none focus:border-surface-400"
                 style={{ height: commentFocused ? 120 : 56, resize: 'none', padding: 8, borderRadius: 2 }}
               />
-              <div className="flex justify-end mt-1.5">
+              <div className="flex items-center justify-between mt-1.5">
+                {aiEnabled ? (
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      const r = await draftReplyMut.mutateAsync(id!)
+                      setCommentText(r.draft)
+                    }}
+                    disabled={draftReplyMut.isPending}
+                    className="flex items-center gap-1 text-2xs text-indigo-600 hover:text-indigo-800 disabled:opacity-50 transition-colors"
+                  >
+                    <Brain size={10} className="flex-none" />
+                    {draftReplyMut.isPending ? 'Drafting…' : 'Draft reply'}
+                  </button>
+                ) : <span />}
                 <SpinButton
                   onClick={submitComment}
                   disabled={!commentText.trim()}

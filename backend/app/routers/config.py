@@ -29,6 +29,20 @@ async def get_categories(
     return app_config.categories
 
 
+_DEFAULT_SOURCES = ["Web Portal", "Email", "Phone", "Slack", "Other"]
+
+
+@router.get("/sources")
+async def get_sources(
+    caller: CallerContext = require_scope("TicketRead"),
+    session: AsyncSession = Depends(get_db),
+) -> list[str]:
+    settings = await AppSettingsRepository(session).get()
+    if settings and settings.sources:
+        return settings.sources
+    return _DEFAULT_SOURCES
+
+
 @router.get("/states")
 async def get_states(caller: CallerContext = require_scope("TicketRead")) -> dict:
     return {

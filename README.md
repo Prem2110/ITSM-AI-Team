@@ -12,9 +12,9 @@ A single-tenant IT Service Management tool — a simplified ServiceNow-like tick
 |-------|-----------|
 | Backend API | Python 3.11+, FastAPI, SQLAlchemy 2.0 (async), Alembic |
 | Database | SAP HANA (production) / SQLite (local dev) |
-| Frontend | React 18, Vite, TypeScript, Tailwind CSS, TanStack Query |
+| Frontend | React 18, Vite, TypeScript, Tailwind CSS, TanStack Query, Framer Motion |
 | Charts | Recharts |
-| AI | OpenRouter API (any LLM — auto-classify, similar incidents, agent suggestions) |
+| AI | OpenRouter API (any LLM — auto-classify, similar incidents, agent suggestions, summarize, draft reply, handoff report) |
 | Auth | Fake-auth stub (current) / SAP XSUAA JWT (add back post-stabilisation) |
 | Deployment | SAP BTP Cloud Foundry (MTA) |
 
@@ -62,9 +62,9 @@ Open `http://localhost:5173`. On a fresh database the app redirects to `/setup`.
 
 | Email | Name | Role |
 |-------|------|------|
-| `karthik.byju@acme.com` | Karthik Byju | Admin |
-| `prem@acme.com` | Prem | Agent |
-| `ashok@acme.com` | Ashok | Requester |
+| `karthik.byju@sierradigital.com` | Karthik Byju | Admin |
+| `prem@sierradigital.com` | Prem | Agent |
+| `ashok@sierradigital.com` | Ashok | Requester |
 
 ---
 
@@ -86,8 +86,8 @@ ITSM/
 │   │   ├── repositories/       SQL data access — one file per model
 │   │   ├── services/
 │   │   │   ├── incident_service.py   Business logic: create, transition, SLA, escalation
-│   │   │   ├── ai_service.py         OpenRouter LLM client (classify, similar, suggest-assignee)
-│   │   │   └── numbering.py          Incident number sequencing
+│   │   │   ├── ai_service.py         OpenRouter LLM client (classify, similar, suggest-assignee, summarize, draft-reply, draft-resolution, handoff-report)
+│   │   │   └── numbering.py          Incident number sequencing (format: TCK-YYYYMMDD-NNNNN)
 │   │   ├── routers/
 │   │   │   ├── incidents.py    CRUD + transition + CSV export
 │   │   │   ├── ai.py           AI endpoints: SLA risk, anomalies, forecast, workload, classify
@@ -240,6 +240,10 @@ On incident creation, `sla_resolution_due = now + priority.sla_hours`. Each requ
 | POST | `/api/ai/classify` | TicketWrite | AI-suggest priority + category for a new incident |
 | GET | `/api/ai/incidents/{id}/similar` | TicketRead | Top 3 similar resolved incidents (AI) |
 | POST | `/api/ai/suggest-assignee` | Agent | AI-suggest best agent for an incident |
+| POST | `/api/ai/incidents/{id}/summarize` | TicketRead | Summarize the full comment thread in 2–3 sentences |
+| POST | `/api/ai/incidents/{id}/draft-reply` | TicketWrite | Draft a customer-facing reply based on thread |
+| POST | `/api/ai/incidents/{id}/draft-resolution` | TicketWrite | Draft resolution notes from the comment thread |
+| POST | `/api/ai/handoff-report` | Agent | Generate a structured shift handoff report for all open incidents |
 
 ### Users
 
@@ -284,8 +288,8 @@ HANA deployments also create a sequence `{PREFIX}INC_SEQ` for ticket numbering.
 ### `backend/config.yaml`
 
 ```yaml
-company_name: "Acme Corporation"
-number_prefix: "INC"          # ticket numbers: INC-001, INC-002, …
+company_name: "Sierra Digital"
+number_prefix: "TCK"          # ticket numbers: TCK-YYYYMMDD-00001, TCK-YYYYMMDD-00002, …
 
 priorities:                   # index = priority int in API (0 = highest)
   - name: Highly Critical  sla_hours: 1
@@ -385,8 +389,12 @@ AI features are **opt-in** — disabled until an admin provides an [OpenRouter](
 | Feature | Where |
 |---------|-------|
 | Auto-classify (priority + category suggestion) | New incident form + Predictive Analytics page |
-| Similar resolved incidents | Incident detail page |
-| Suggest assignee | Incident detail page (agents only) |
+| Similar resolved incidents | Incident detail → AI Help panel |
+| Thread summarizer | Incident detail → AI Help panel |
+| Draft customer reply | Incident detail → comment box |
+| Draft resolution notes | Incident detail → resolve form |
+| Shift handoff report | Incidents list toolbar → opens modal |
+| Suggest assignee | Predictive Analytics → Agent workload |
 | SLA risk monitor | Predictive Analytics (always on, no AI key needed) |
 | Anomaly detection | Predictive Analytics (always on) |
 | 7-day incident forecast | Predictive Analytics (always on) |

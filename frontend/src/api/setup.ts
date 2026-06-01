@@ -16,6 +16,7 @@ export interface SetupCompleteRequest {
   admin: AdminBootstrap
   sla_targets: Record<string, number>
   categories: string[]
+  sources?: string[]
   resolution_codes: string[]
 }
 
@@ -26,6 +27,7 @@ export interface AppSettingsData {
   sla_targets: Record<string, number> | null
   resolution_codes: string[] | null
   categories: string[] | null
+  sources: string[] | null
   ai_enabled: number | null
   openrouter_model: string | null
   setup_completed_at: string
@@ -39,6 +41,8 @@ export interface AppSettingsPatch {
   timezone?: string
   sla_targets?: Record<string, number>
   resolution_codes?: string[]
+  categories?: string[]
+  sources?: string[]
 }
 
 export async function getSetupStatus(): Promise<SetupStatus> {

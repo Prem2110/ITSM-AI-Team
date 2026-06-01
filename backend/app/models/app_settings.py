@@ -20,6 +20,7 @@ class AppSettings(Base):
     setup_completed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     setup_completed_by: Mapped[str | None] = mapped_column(String(36), nullable=True)
     categories: Mapped[list | None] = mapped_column(JSONText, nullable=True)
+    sources: Mapped[list | None] = mapped_column(JSONText, nullable=True)
     ai_enabled: Mapped[int] = mapped_column(sa.SmallInteger(), nullable=True, default=0)
     openrouter_api_key: Mapped[str | None] = mapped_column(String(255), nullable=True)
     openrouter_model: Mapped[str | None] = mapped_column(String(100), nullable=True)

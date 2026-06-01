@@ -108,3 +108,58 @@ class AIService:
         result = json.loads(raw)
         result["confidence"] = round(float(result.get("confidence", 0.5)), 2)
         return result
+
+    async def summarize_thread(self, title: str, events: list[dict]) -> dict:
+        if not events:
+            return {"summary": "No activity to summarize."}
+        lines = "\n".join(f"[{e['type'].upper()}] {e['body']}" for e in events[:40])
+        system = (
+            "You are an ITSM support assistant. "
+            "Summarize the incident activity thread in 2–3 sentences. "
+            "Focus on what the problem is, what was tried, and current status. "
+            "Return JSON with key: summary (string)."
+        )
+        raw = await self._chat(system, f"Incident: {title}\n\nActivity:\n{lines}")
+        return {"summary": str(json.loads(raw).get("summary", ""))}
+
+    async def draft_reply(self, title: str, state: str, events: list[dict]) -> dict:
+        lines = "\n".join(f"[{e['type'].upper()}] {e['body']}" for e in events[-20:]) or "(no activity yet)"
+        system = (
+            "You are an ITSM support agent. "
+            "Draft a professional, concise customer-facing reply for this incident. "
+            "Be empathetic, clear about next steps, and sign off as 'Support Team'. "
+            "Return JSON with key: draft (string)."
+        )
+        user = f"Incident: {title}\nCurrent state: {state}\n\nRecent activity:\n{lines}"
+        raw = await self._chat(system, user)
+        return {"draft": str(json.loads(raw).get("draft", ""))}
+
+    async def draft_resolution(self, title: str, description: str, events: list[dict]) -> dict:
+        lines = "\n".join(f"[{e['type'].upper()}] {e['body']}" for e in events[-30:]) or "(no activity yet)"
+        system = (
+            "You are an ITSM support agent writing a resolution note. "
+            "Summarize how the incident was resolved in 2–4 sentences. "
+            "Be specific about what was done. Do not include greetings. "
+            "Return JSON with key: notes (string)."
+        )
+        user = f"Incident: {title}\nDescription: {description or '(none)'}\n\nActivity:\n{lines}"
+        raw = await self._chat(system, user)
+        return {"notes": str(json.loads(raw).get("notes", ""))}
+
+    async def generate_handoff_report(self, open_incidents: list[dict]) -> dict:
+        if not open_incidents:
+            return {"report": "No open incidents at this time."}
+        lines = "\n".join(
+            f"- [{inc['number']}] {inc['title']} | State: {inc['state']} | "
+            f"Priority: {inc['priority_name']} | Assignee: {inc['assignee'] or 'Unassigned'} | SLA: {inc['sla_status']}"
+            for inc in open_incidents[:50]
+        )
+        system = (
+            "You are an ITSM shift supervisor writing a handoff report. "
+            "Produce a structured handoff report: start with a brief situation overview, "
+            "then group incidents by urgency (SLA Breached first, then by priority). "
+            "Include a recommended action for each. Use plain text with clear section headers. "
+            "Return JSON with key: report (string, use \\n for line breaks)."
+        )
+        raw = await self._chat(system, f"Open incidents at shift end:\n\n{lines}")
+        return {"report": str(json.loads(raw).get("report", ""))}

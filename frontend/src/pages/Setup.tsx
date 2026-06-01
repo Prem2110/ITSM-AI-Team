@@ -25,6 +25,14 @@ const DEFAULT_CATEGORIES = [
   'SAP Integration',
 ]
 
+const DEFAULT_SOURCES = [
+  'Web Portal',
+  'Email',
+  'Phone',
+  'Slack',
+  'Other',
+]
+
 const DEFAULT_RESOLUTION_CODES = [
   'Fixed',
   'Workaround',
@@ -73,11 +81,12 @@ interface WizardState {
   adminEmail: string
   slaTargets: Record<string, number>
   categories: string[]
+  sources: string[]
   resolutionCodes: string[]
 }
 
 const TIMEZONES = getTimezones()
-const TOTAL_STEPS = 7
+const TOTAL_STEPS = 8
 
 export default function Setup() {
   const navigate = useNavigate()
@@ -87,6 +96,7 @@ export default function Setup() {
   const [priorities, setPriorities] = useState<Priority[]>([])
   const [newCode, setNewCode] = useState('')
   const [newCategory, setNewCategory] = useState('')
+  const [newSource, setNewSource] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [alreadyDone, setAlreadyDone] = useState(false)
@@ -97,6 +107,7 @@ export default function Setup() {
     adminEmail: '',
     slaTargets: { '0': 1, '1': 4, '2': 8, '3': 24, '4': 72 },
     categories: [...DEFAULT_CATEGORIES],
+    sources: [...DEFAULT_SOURCES],
     resolutionCodes: [...DEFAULT_RESOLUTION_CODES],
   })
 
@@ -148,6 +159,18 @@ export default function Setup() {
     setNewCategory('')
   }
 
+  function removeSource(idx: number) {
+    setForm((f) => ({ ...f, sources: f.sources.filter((_, i) => i !== idx) }))
+  }
+
+  function addSource() {
+    const c = newSource.trim()
+    if (c && !form.sources.includes(c)) {
+      setForm((f) => ({ ...f, sources: [...f.sources, c] }))
+    }
+    setNewSource('')
+  }
+
   async function submit() {
     setSubmitting(true)
     setError(null)
@@ -158,6 +181,7 @@ export default function Setup() {
         admin: { name: form.adminName, email: form.adminEmail },
         sla_targets: form.slaTargets,
         categories: form.categories,
+        sources: form.sources,
         resolution_codes: form.resolutionCodes,
       })
       setFakeUser(result.admin.email)
@@ -179,6 +203,7 @@ export default function Setup() {
     if (step === 4) return Object.values(form.slaTargets).every((v) => Number(v) > 0)
     if (step === 5) return form.categories.length > 0
     if (step === 6) return form.resolutionCodes.length > 0
+    if (step === 7) return form.sources.length > 0
     return true
   }
 
@@ -513,8 +538,56 @@ export default function Setup() {
             </div>
           )}
 
-          {/* Step 7: Review */}
+          {/* Step 7: Sources */}
           {step === 7 && (
+            <div>
+              <h2 className="text-sm font-semibold text-surface-800 mb-1">
+                Incident sources
+              </h2>
+              <p className="text-xs text-surface-400 mb-3">
+                Channels through which incidents are reported. At least one required.
+              </p>
+              <div className="flex flex-col gap-1 mb-3">
+                {form.sources.map((src, idx) => (
+                  <div
+                    key={idx}
+                    className="flex items-center justify-between border border-surface-200 bg-surface-50 px-2 py-1"
+                    style={{ borderRadius: 2 }}
+                  >
+                    <span className="text-xs text-surface-700">{src}</span>
+                    <button
+                      onClick={() => removeSource(idx)}
+                      className="text-surface-400 hover:text-surface-700 transition-colors ml-2 flex-none"
+                    >
+                      <X size={12} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+              <div className="flex gap-1">
+                <input
+                  type="text"
+                  value={newSource}
+                  onChange={(e) => setNewSource(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && addSource()}
+                  placeholder="Add a source channel…"
+                  className="flex-1 border border-surface-200 bg-white text-xs px-2 py-1.5 focus:outline-none focus:border-surface-400"
+                  style={{ borderRadius: 2 }}
+                />
+                <button
+                  onClick={addSource}
+                  disabled={!newSource.trim()}
+                  className="border border-surface-200 px-2 py-1 text-xs text-surface-600 hover:bg-surface-50 disabled:opacity-40 transition-colors flex items-center"
+                  style={{ borderRadius: 2 }}
+                >
+                  <Plus size={12} />
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Step 8: Review */}
+          {step === 8 && (
             <div>
               <h2 className="text-sm font-semibold text-surface-800 mb-4">
                 Review &amp; complete
@@ -542,6 +615,12 @@ export default function Setup() {
                     Categories
                   </div>
                   <div className="text-surface-700">{form.categories.join(', ')}</div>
+                </div>
+                <div className="border-t border-surface-100 pt-3 mt-3">
+                  <div className="text-2xs font-semibold text-surface-400 uppercase tracking-widest mb-2">
+                    Sources
+                  </div>
+                  <div className="text-surface-700">{form.sources.join(', ')}</div>
                 </div>
                 <div className="border-t border-surface-100 pt-3 mt-3">
                   <div className="text-2xs font-semibold text-surface-400 uppercase tracking-widest mb-2">

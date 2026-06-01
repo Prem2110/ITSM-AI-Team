@@ -3,11 +3,13 @@ from collections import defaultdict
 from datetime import timedelta
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
+from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession
 from ..db import get_db
 from ..auth.permissions import require_scope
 from ..auth.context import CallerContext
 from ..models.incident import Incident
+from ..models.incident_event import IncidentEvent as IncidentEventModel
 from ..repositories.incident_repository import IncidentRepository
 from ..repositories.app_settings_repository import AppSettingsRepository
 from ..repositories.user_repository import UserRepository
@@ -341,5 +343,122 @@ async def suggest_assignee(
             priority_name=priority_name,
             agent_stats=agent_stats,
         )
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=f"AI service error: {exc}")
+
+
+async def _load_content_events(incident_id: str, session: AsyncSession) -> list[dict]:
+    res = await session.execute(
+        select(IncidentEventModel)
+        .where(IncidentEventModel.incident_id == incident_id)
+        .where(IncidentEventModel.event_type.in_(["comment", "work_note"]))
+        .order_by(IncidentEventModel.created_at)
+    )
+    return [
+        {"type": e.event_type, "body": e.body or ""}
+        for e in res.scalars()
+        if e.body
+    ]
+
+
+@router.post("/incidents/{incident_id}/summarize")
+async def summarize_incident(
+    incident_id: str,
+    caller: CallerContext = require_scope("TicketRead"),
+    session: AsyncSession = Depends(get_db),
+) -> dict:
+    settings = await AppSettingsRepository(session).get()
+    svc = _build_ai_service(settings)
+    if not svc:
+        raise HTTPException(status_code=503, detail="AI features are disabled or not configured")
+    res = await session.execute(select(Incident).where(Incident.id == incident_id))
+    incident = res.scalar_one_or_none()
+    if not incident:
+        raise HTTPException(status_code=404, detail="Incident not found")
+    events = await _load_content_events(incident_id, session)
+    try:
+        return await svc.summarize_thread(title=incident.title, events=events)
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=f"AI service error: {exc}")
+
+
+@router.post("/incidents/{incident_id}/draft-reply")
+async def draft_reply(
+    incident_id: str,
+    caller: CallerContext = require_scope("TicketWrite"),
+    session: AsyncSession = Depends(get_db),
+) -> dict:
+    settings = await AppSettingsRepository(session).get()
+    svc = _build_ai_service(settings)
+    if not svc:
+        raise HTTPException(status_code=503, detail="AI features are disabled or not configured")
+    res = await session.execute(select(Incident).where(Incident.id == incident_id))
+    incident = res.scalar_one_or_none()
+    if not incident:
+        raise HTTPException(status_code=404, detail="Incident not found")
+    events = await _load_content_events(incident_id, session)
+    try:
+        return await svc.draft_reply(title=incident.title, state=incident.state, events=events)
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=f"AI service error: {exc}")
+
+
+@router.post("/incidents/{incident_id}/draft-resolution")
+async def draft_resolution(
+    incident_id: str,
+    caller: CallerContext = require_scope("TicketWrite"),
+    session: AsyncSession = Depends(get_db),
+) -> dict:
+    settings = await AppSettingsRepository(session).get()
+    svc = _build_ai_service(settings)
+    if not svc:
+        raise HTTPException(status_code=503, detail="AI features are disabled or not configured")
+    res = await session.execute(select(Incident).where(Incident.id == incident_id))
+    incident = res.scalar_one_or_none()
+    if not incident:
+        raise HTTPException(status_code=404, detail="Incident not found")
+    events = await _load_content_events(incident_id, session)
+    try:
+        return await svc.draft_resolution(
+            title=incident.title,
+            description=incident.description or "",
+            events=events,
+        )
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=f"AI service error: {exc}")
+
+
+@router.post("/handoff-report")
+async def handoff_report(
+    caller: CallerContext = require_scope("Agent"),
+    session: AsyncSession = Depends(get_db),
+) -> dict:
+    settings = await AppSettingsRepository(session).get()
+    svc = _build_ai_service(settings)
+    if not svc:
+        raise HTTPException(status_code=503, detail="AI features are disabled or not configured")
+    open_states = ["new", "assigned", "in_progress", "on_hold"]
+    res = await session.execute(
+        select(Incident)
+        .where(Incident.state.in_(open_states))
+        .options(selectinload(Incident.assignee))
+        .order_by(Incident.priority.asc(), Incident.sla_breached.desc(), Incident.created_at.asc())
+        .limit(50)
+    )
+    incidents = res.scalars().all()
+    priority_names = [p.name for p in app_config.priorities]
+    open_incidents = [
+        {
+            "number": inc.number,
+            "title": inc.title,
+            "state": inc.state,
+            "priority_name": priority_names[inc.priority] if 0 <= inc.priority < len(priority_names) else f"P{inc.priority}",
+            "assignee": inc.assignee.name if inc.assignee else None,
+            "sla_status": "Breached" if inc.sla_breached else "OK",
+        }
+        for inc in incidents
+    ]
+    try:
+        return await svc.generate_handoff_report(open_incidents=open_incidents)
     except Exception as exc:
         raise HTTPException(status_code=502, detail=f"AI service error: {exc}")

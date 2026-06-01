@@ -48,6 +48,7 @@ async def complete_setup(
         "sla_targets": req.sla_targets,
         "resolution_codes": req.resolution_codes,
         "categories": req.categories if req.categories else _cfg.categories,
+        "sources": req.sources if req.sources else ["Web Portal", "Email", "Phone", "Slack", "Other"],
         "setup_completed_at": now,
         "setup_completed_by": admin.id,
         "created_at": now,

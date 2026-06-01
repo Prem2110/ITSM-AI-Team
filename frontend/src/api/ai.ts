@@ -117,3 +117,23 @@ export async function getSimilarIncidents(incidentId: string): Promise<SimilarIn
   const { data } = await client.get(`/ai/incidents/${incidentId}/similar`)
   return data
 }
+
+export async function summarizeIncident(incidentId: string): Promise<{ summary: string }> {
+  const { data } = await client.post(`/ai/incidents/${incidentId}/summarize`, {})
+  return data
+}
+
+export async function draftReply(incidentId: string): Promise<{ draft: string }> {
+  const { data } = await client.post(`/ai/incidents/${incidentId}/draft-reply`, {})
+  return data
+}
+
+export async function draftResolution(incidentId: string): Promise<{ notes: string }> {
+  const { data } = await client.post(`/ai/incidents/${incidentId}/draft-resolution`, {})
+  return data
+}
+
+export async function generateHandoffReport(): Promise<{ report: string }> {
+  const { data } = await client.post('/ai/handoff-report', {})
+  return data
+}

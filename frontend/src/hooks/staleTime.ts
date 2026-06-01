@@ -1,7 +1,7 @@
 const m = 60 * 1000
 
 export const STALE = {
-  config:    Infinity,  // priorities / categories / states — never changes at runtime
+  config:    5 * m,     // priorities / categories / states — refresh every 5 min
   setup:     Infinity,  // once completed, stays completed
   me:        10 * m,    // 10 min — own profile won't change mid-session
   users:      5 * m,   //  5 min — user list changes rarely

@@ -1,9 +1,10 @@
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { ChevronLeft } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { useMe, usePriorities, useCategories, useUsers } from '@/hooks'
+import { useSources } from '@/hooks/useConfig'
 import { createIncident } from '@/api/incidents'
 import { SpinButton } from '@/components/SpinButton'
 import type { IncidentCreateRequest } from '@/types'
@@ -15,6 +16,7 @@ export default function IncidentNew() {
   const { data: me } = useMe()
   const { data: priorities } = usePriorities()
   const { data: categories } = useCategories()
+  const { data: sources } = useSources()
 
   const isAgent = me?.scopes?.includes('Agent') ?? false
   const { data: allUsers } = useUsers(undefined, isAgent)
@@ -24,10 +26,17 @@ export default function IncidentNew() {
   const [description, setDescription] = useState('')
   const [priority, setPriority] = useState(3)
   const [category, setCategory] = useState('')
-  const [source, setSource] = useState('web')
+  const [source, setSource] = useState('')
   const [assigneeId, setAssigneeId] = useState('')
   const [requesterId, setRequesterId] = useState('')
   const [shakeFields, setShakeFields] = useState<string[]>([])
+
+  // Auto-select first source when they load
+  const prevSourcesRef = useRef<string[] | undefined>(undefined)
+  if (sources && sources !== prevSourcesRef.current) {
+    prevSourcesRef.current = sources
+    if (!source && sources.length > 0) setSource(sources[0])
+  }
 
   const createMut = useMutation({
     mutationFn: (payload: IncidentCreateRequest) => createIncident(payload),
@@ -167,10 +176,9 @@ export default function IncidentNew() {
               className="w-full text-xs border border-surface-200 bg-white px-2 py-1.5 focus:outline-none focus:border-surface-500"
               style={{ borderRadius: 2 }}
             >
-              <option value="web">Web Portal</option>
-              <option value="email">Email</option>
-              <option value="classifier_escalation">Auto-Classifier</option>
-              <option value="fix_failed_escalation">Fix Failed Escalation</option>
+              {(sources ?? ['Web Portal', 'Email', 'Phone', 'Other']).map(s => (
+                <option key={s} value={s}>{s}</option>
+              ))}
             </select>
           </div>
 

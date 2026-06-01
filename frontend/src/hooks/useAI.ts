@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   getAIStatus, getSLARisk, getAnomalies, getForecast,
   getAgentWorkload, classifyIncident, getSimilarIncidents, patchAISettings, testConnection,
+  summarizeIncident, draftReply, draftResolution, generateHandoffReport,
 } from '@/api/ai'
 import type { AISettingsPatch } from '@/api/ai'
 
@@ -56,4 +57,20 @@ export function usePatchAISettings() {
       qc.invalidateQueries({ queryKey: ['app-settings'] })
     },
   })
+}
+
+export function useSummarizeIncident() {
+  return useMutation({ mutationFn: (incidentId: string) => summarizeIncident(incidentId) })
+}
+
+export function useDraftReply() {
+  return useMutation({ mutationFn: (incidentId: string) => draftReply(incidentId) })
+}
+
+export function useDraftResolution() {
+  return useMutation({ mutationFn: (incidentId: string) => draftResolution(incidentId) })
+}
+
+export function useHandoffReport() {
+  return useMutation({ mutationFn: generateHandoffReport })
 }

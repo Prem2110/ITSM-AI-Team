@@ -148,6 +148,8 @@ function GeneralTab() {
   const [slaTargets, setSlaTargets]     = useState<Record<string, number>>({ '0': 1, '1': 4, '2': 8, '3': 24, '4': 72 })
   const [categories, setCategories]     = useState<string[]>([])
   const [newCategory, setNewCategory]   = useState('')
+  const [sources, setSources]           = useState<string[]>([])
+  const [newSource, setNewSource]       = useState('')
   const [codes, setCodes]               = useState<string[]>([])
   const [newCode, setNewCode]           = useState('')
   const [saving, setSaving]             = useState<string | null>(null)
@@ -159,6 +161,7 @@ function GeneralTab() {
       setTimezone(settings.timezone)
       setSlaTargets(settings.sla_targets ?? { '0': 1, '1': 4, '2': 8, '3': 24, '4': 72 })
       setCategories(settings.categories ?? [])
+      setSources(settings.sources ?? [])
       setCodes(settings.resolution_codes ?? [])
     }
   }, [settings])
@@ -169,6 +172,7 @@ function GeneralTab() {
       await patchAppSettings(fields)
       qc.invalidateQueries({ queryKey: ['app-settings'] })
       qc.invalidateQueries({ queryKey: ['setup-status'] })
+      qc.invalidateQueries({ queryKey: ['config'] })
       setSaved(section)
       setTimeout(() => setSaved(null), 2000)
     } finally {
@@ -186,6 +190,12 @@ function GeneralTab() {
     const c = newCategory.trim()
     if (c && !categories.includes(c)) setCategories(prev => [...prev, c])
     setNewCategory('')
+  }
+
+  function addSource() {
+    const c = newSource.trim()
+    if (c && !sources.includes(c)) setSources(prev => [...prev, c])
+    setNewSource('')
   }
 
   const inputCls = 'w-full border border-surface-200 bg-white text-xs px-2 py-1.5 focus:outline-none focus:border-surface-400'
@@ -305,6 +315,43 @@ function GeneralTab() {
             <SaveButton section="categories" saving={saving} saved={saved}
               disabled={categories.length === 0}
               onClick={() => saveSection('categories', { categories })} />
+          </>
+        )}
+      </section>
+
+      <section className="mb-8">
+        <SectionHeader>Incident Sources</SectionHeader>
+        <p className="text-xs text-surface-400 mb-4">Channels through which incidents are reported. Shown in the new incident form.</p>
+        <div className="flex flex-col gap-1 mb-3">
+          {sources.map((src, idx) => (
+            <div key={idx} className="flex items-center justify-between border border-surface-200 bg-white px-2 py-1" style={{ borderRadius: 2 }}>
+              <span className="text-xs text-surface-700">{src}</span>
+              {isAdmin && (
+                <button onClick={() => setSources(prev => prev.filter((_, i) => i !== idx))}
+                  className="text-surface-400 hover:text-surface-700 transition-colors ml-2 flex-none">
+                  <X size={12} />
+                </button>
+              )}
+            </div>
+          ))}
+          {sources.length === 0 && <div className="text-xs text-surface-400 py-1">No sources defined.</div>}
+        </div>
+        {isAdmin && (
+          <>
+            <div className="flex gap-1 mb-4">
+              <input type="text" value={newSource} onChange={e => setNewSource(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && addSource()} placeholder="Add a source channel…"
+                className="flex-1 border border-surface-200 bg-white text-xs px-2 py-1.5 focus:outline-none focus:border-surface-400"
+                style={{ borderRadius: 2 }} />
+              <button onClick={addSource} disabled={!newSource.trim()}
+                className="border border-surface-200 px-2 py-1 text-xs text-surface-600 hover:bg-surface-50 disabled:opacity-40 transition-colors flex items-center"
+                style={{ borderRadius: 2 }}>
+                <Plus size={12} />
+              </button>
+            </div>
+            <SaveButton section="sources" saving={saving} saved={saved}
+              disabled={sources.length === 0}
+              onClick={() => saveSection('sources', { sources })} />
           </>
         )}
       </section>
