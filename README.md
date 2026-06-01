@@ -60,11 +60,11 @@ npm run dev
 
 Open `http://localhost:5173`. On a fresh database the app redirects to `/setup`. Complete the wizard, then log in with any email from the seeded users:
 
-| Email | Role |
-|-------|------|
-| `admin@acme.com` | Admin |
-| `sarah.chen@acme.com` | Agent |
-| `james.park@acme.com` | Requester |
+| Email | Name | Role |
+|-------|------|------|
+| `karthik.byju@acme.com` | Karthik Byju | Admin |
+| `prem@acme.com` | Prem | Agent |
+| `ashok@acme.com` | Ashok | Requester |
 
 ---
 
