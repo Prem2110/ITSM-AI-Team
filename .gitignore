@@ -35,3 +35,7 @@ Thumbs.db
 # SAP BTP
 *.mtar
 mta_archives/
+
+
+
+mta.yaml

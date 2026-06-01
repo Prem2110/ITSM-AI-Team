@@ -78,9 +78,16 @@ modules:
       # Restrict CORS to the approuter URL after first deploy, e.g.:
       # CORS_ORIGINS: '["https://itsm-approuter.cfapps.eu10.hana.ondemand.com"]'
       CORS_ORIGINS: '["*"]'
+      # HANA connection
+      HANA_ADDRESS: fdddfefe-e600-4b7f-b032-4f8fd05ec060.hna0.prod-us10.hanacloud.ondemand.com
+      HANA_PORT: 443
+      HANA_USER: AI_USE_CASES_HDI_DB_1_9YUM85CO7FKDBO5H0FRK2Q2VA_RT
+      HANA_PASSWORD: Tn2FxjyBoXe6c.xQagv6lizP7SGgqd8ZSg4gmHGakSryuDH5vOAemDRqsr-jovT7Ov2c_oxC.tOHET1BrLuz895OMHYke_WJqlX_xSjA85.N0yjn.X5GZ.uo8L0pXH40
+      HANA_SCHEMA: AI_USE_CASES_HDI_DB_1
+      HANA_ENCRYPT: true
+      HANA_SSL_VALIDATE: false
     requires:
       - name: itsm-xsuaa
-      - name: itsm-hana
     provides:
       - name: itsm-api-dest
         properties:
@@ -109,9 +116,3 @@ resources:
       service-plan: application
       path: deploy/xs-security.json
 
-  # HANA Cloud — must already exist in your CF space
-  # Change `service-name` to match your actual HANA Cloud service instance name
-  - name: itsm-hana
-    type: org.cloudfoundry.existing-service
-    parameters:
-      service-name: itsm-hana-db
