@@ -30,13 +30,12 @@ modules:
       disk-quota: 256M
       memory: 128M
     requires:
-      - name: itsm-xsuaa
       - name: itsm-api-dest
         group: destinations
         properties:
           name: itsm-api
           url: ~{url}
-          forwardAuthToken: true
+          forwardAuthToken: false
     build-parameters:
       requires:
         - name: itsm-ui
@@ -73,7 +72,7 @@ modules:
         - "*.pyo"
         - "backend-dev.log"
     properties:
-      AUTH_MODE: real
+      AUTH_MODE: fake
       TABLE_PREFIX: ITSMAI_
       # Restrict CORS to the approuter URL after first deploy, e.g.:
       # CORS_ORIGINS: '["https://itsm-approuter.cfapps.eu10.hana.ondemand.com"]'
@@ -86,8 +85,6 @@ modules:
       HANA_SCHEMA: AI_USE_CASES_HDI_DB_1
       HANA_ENCRYPT: true
       HANA_SSL_VALIDATE: false
-    requires:
-      - name: itsm-xsuaa
     provides:
       - name: itsm-api-dest
         properties:
@@ -105,14 +102,6 @@ modules:
           disk-quota: 512M
 
 # ── Resources ────────────────────────────────────────────────────────────────
-
-resources:
-
-  # XSUAA — created/updated on each deploy from xs-security.json
-  - name: itsm-xsuaa
-    type: org.cloudfoundry.managed-service
-    parameters:
-      service: xsuaa
-      service-plan: application
-      path: deploy/xs-security.json
+# (no managed services — XSUAA removed for initial stabilisation)
+resources: []
 
