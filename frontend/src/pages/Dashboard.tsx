@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { motion, type Variants } from 'framer-motion'
 import {
   LineChart, Line, BarChart, Bar, XAxis, YAxis,
   Tooltip, ResponsiveContainer, CartesianGrid, Cell,
@@ -29,6 +30,25 @@ function useCountUp(target: number, duration = 650) {
     return () => cancelAnimationFrame(raf)
   }, [target, duration])
   return count
+}
+
+// ─── Animation variants ───────────────────────────────────────────────────────
+
+const statGrid: Variants = {
+  hidden: {},
+  show: { transition: { staggerChildren: 0.07 } },
+}
+const statItem: Variants = {
+  hidden: { opacity: 0, y: 12, scale: 0.98 },
+  show: { opacity: 1, y: 0, scale: 1, transition: { duration: 0.28, ease: 'easeOut' } },
+}
+const panelRow: Variants = {
+  hidden: {},
+  show: { transition: { staggerChildren: 0.09, delayChildren: 0.15 } },
+}
+const panelItem: Variants = {
+  hidden: { opacity: 0, y: 10 },
+  show: { opacity: 1, y: 0, transition: { duration: 0.32, ease: 'easeOut' } },
 }
 
 // ─── Skeleton ─────────────────────────────────────────────────────────────────
@@ -75,7 +95,7 @@ function StatCard({ label, value, href, accent = '#6366f1', loading, tooltip }: 
   return (
     <button
       onClick={() => navigate(href)}
-      className="stat-card bg-white border border-surface-200 px-4 pt-4 pb-5 text-left w-full animate-content-enter"
+      className="stat-card bg-white border border-surface-200 px-4 pt-4 pb-5 text-left w-full"
       style={{ borderRadius: 4 }}
       title={tooltip}
     >
@@ -432,28 +452,48 @@ export default function Dashboard() {
         <div style={{ maxWidth: 1100 }}>
 
           {/* Row 1 — Stat cards */}
-          <div className="grid grid-cols-4 gap-3 mb-4">
-            <StatCard label={t('dashboard.myOpen')}      value={summary?.my_open}   href="/incidents?assignee_id=me&state=new,assigned,in_progress,on_hold" accent="#6366f1" loading={summaryLoad} tooltip="Incidents assigned to you that are currently open." />
-            <StatCard label={t('dashboard.allOpen')}     value={summary?.all_open}  href="/incidents?state=new,assigned,in_progress,on_hold"                 accent="#0ea5e9" loading={summaryLoad} tooltip="All incidents that are currently open across the system." />
-            <StatCard label={t('dashboard.unassigned')}  value={summary?.unassigned} href="/incidents?assignee_id=unassigned"                               accent="#f59e0b" loading={summaryLoad} tooltip="Open incidents that do not have an assignee yet." />
-            <StatCard label={t('dashboard.breachedSlas')} value={summary?.breached}  href="/incidents?sla_breached=true"                                    accent="#ef4444" loading={summaryLoad} tooltip="Open incidents that have crossed SLA due time." />
-          </div>
+          <motion.div
+            className="grid grid-cols-4 gap-3 mb-4"
+            variants={statGrid}
+            initial="hidden"
+            animate="show"
+          >
+            <motion.div variants={statItem}><StatCard label={t('dashboard.myOpen')}       value={summary?.my_open}    href="/incidents?assignee_id=me&state=new,assigned,in_progress,on_hold" accent="#6366f1" loading={summaryLoad} tooltip="Incidents assigned to you that are currently open." /></motion.div>
+            <motion.div variants={statItem}><StatCard label={t('dashboard.allOpen')}      value={summary?.all_open}   href="/incidents?state=new,assigned,in_progress,on_hold"                 accent="#0ea5e9" loading={summaryLoad} tooltip="All incidents that are currently open across the system." /></motion.div>
+            <motion.div variants={statItem}><StatCard label={t('dashboard.unassigned')}   value={summary?.unassigned} href="/incidents?assignee_id=unassigned"                                  accent="#f59e0b" loading={summaryLoad} tooltip="Open incidents that do not have an assignee yet." /></motion.div>
+            <motion.div variants={statItem}><StatCard label={t('dashboard.breachedSlas')} value={summary?.breached}   href="/incidents?sla_breached=true"                                       accent="#ef4444" loading={summaryLoad} tooltip="Open incidents that have crossed SLA due time." /></motion.div>
+          </motion.div>
 
           {/* Row 2 — Trend + SLA */}
-          <div className="grid grid-cols-2 gap-3 mb-4">
-            <TrendChart />
-            <SlaWidget />
-          </div>
+          <motion.div
+            className="grid grid-cols-2 gap-3 mb-4"
+            variants={panelRow}
+            initial="hidden"
+            animate="show"
+          >
+            <motion.div variants={panelItem}><TrendChart /></motion.div>
+            <motion.div variants={panelItem}><SlaWidget /></motion.div>
+          </motion.div>
 
           {/* Row 3 — Priority + Categories */}
-          <div className="grid grid-cols-2 gap-3">
-            <PriorityBarChart />
-            <TopCategories />
-          </div>
+          <motion.div
+            className="grid grid-cols-2 gap-3"
+            variants={panelRow}
+            initial="hidden"
+            animate="show"
+          >
+            <motion.div variants={panelItem}><PriorityBarChart /></motion.div>
+            <motion.div variants={panelItem}><TopCategories /></motion.div>
+          </motion.div>
 
-          <div className="mt-4">
+          <motion.div
+            className="mt-4"
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3, delay: 0.4, ease: 'easeOut' }}
+          >
             <OpsKpis />
-          </div>
+          </motion.div>
 
         </div>
       </div>

@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, type ReactNode } from 'react'
+import { AnimatePresence, motion } from 'framer-motion'
 import { useNavigate } from 'react-router-dom'
 import {
   X, Settings, Palette, Plus, Loader2,
@@ -985,34 +986,28 @@ interface Props {
 
 export function SettingsModal({ open, defaultTab = 'general', onClose }: Props) {
   const [activeTab, setActiveTab] = useState<SettingsTab>(defaultTab)
-  const [visible,   setVisible]   = useState(false)
-  const [exiting,   setExiting]   = useState(false)
 
   useEffect(() => {
-    if (open) {
-      setActiveTab(defaultTab)
-      setVisible(true)
-      setExiting(false)
-    } else if (visible) {
-      setExiting(true)
-      const t = setTimeout(() => { setVisible(false); setExiting(false) }, 200)
-      return () => clearTimeout(t)
-    }
-  }, [open])
+    if (open) setActiveTab(defaultTab)
+  }, [open, defaultTab])
 
   useEffect(() => {
-    if (!visible) return
+    if (!open) return
     const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
-  }, [visible, onClose])
-
-  if (!visible) return null
+  }, [open, onClose])
 
   return (
-    <div
+    <AnimatePresence>
+      {open && (
+    <motion.div
+      key="settings-backdrop"
       onClick={onClose}
-      className={exiting ? 'animate-backdrop-exit' : 'animate-backdrop-enter'}
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.18 }}
       style={{
         position: 'fixed', inset: 0, zIndex: 1000,
         background: 'rgba(15, 23, 42, 0.45)',
@@ -1021,9 +1016,12 @@ export function SettingsModal({ open, defaultTab = 'general', onClose }: Props) 
         padding: 24,
       }}
     >
-      <div
+      <motion.div
         onClick={e => e.stopPropagation()}
-        className={exiting ? 'animate-modal-exit' : 'animate-modal-enter'}
+        initial={{ opacity: 0, scale: 0.96, y: 10 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.96, y: 6 }}
+        transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
         style={{
           background: 'var(--bg-primary)',
           border: '1px solid var(--border-color)',
@@ -1089,7 +1087,9 @@ export function SettingsModal({ open, defaultTab = 'general', onClose }: Props) 
             {activeTab === 'ai'         && <AITab />}
           </div>
         </div>
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
+      )}
+    </AnimatePresence>
   )
 }

@@ -1,5 +1,6 @@
 import { Link, Outlet, useLocation } from 'react-router-dom'
 import { useState, useEffect, useRef } from 'react'
+import { AnimatePresence, motion } from 'framer-motion'
 import { Settings } from 'lucide-react'
 import { clearFakeUser, getFakeUser } from '@/api/auth'
 import { useNavigate } from 'react-router-dom'
@@ -208,9 +209,18 @@ export default function Layout() {
 
         {/* Main content — NO padding here, pages handle their own */}
         <main className="flex-1 overflow-hidden bg-white flex flex-col">
-          <div key={location.pathname} className="animate-page-enter flex-1 flex flex-col overflow-hidden">
-            <Outlet />
-          </div>
+          <AnimatePresence mode="wait" initial={false}>
+            <motion.div
+              key={location.pathname}
+              initial={{ opacity: 0, y: 5 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -4 }}
+              transition={{ duration: 0.15, ease: 'easeOut' }}
+              className="flex-1 flex flex-col overflow-hidden"
+            >
+              <Outlet />
+            </motion.div>
+          </AnimatePresence>
         </main>
       </div>
 
