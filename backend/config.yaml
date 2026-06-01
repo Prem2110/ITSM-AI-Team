@@ -1,5 +1,5 @@
 # ITSM configuration — edit to customise for each customer deployment
-company_name: "Acme Corporation"
+company_name: "Sierra Digital"
 number_prefix: "TCK"
 
 priorities:
