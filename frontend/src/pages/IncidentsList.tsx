@@ -1,5 +1,24 @@
 import { useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
+
+function parseIncidentError(error: unknown): string {
+  const err = error as any
+  if (!err) return 'Failed to load incidents.'
+  // Network / no response
+  if (err.code === 'ERR_NETWORK' || err.code === 'ECONNREFUSED' || !err.response) {
+    return 'Cannot reach the server — check your network or backend status.'
+  }
+  const status: number = err.response?.status
+  const detail: string = err.response?.data?.detail ?? err.response?.data?.message ?? ''
+  if (status === 401) return '401 · Not authenticated — please log in again.'
+  if (status === 403) return '403 · You don\'t have permission to view incidents.'
+  if (status === 404) return '404 · Incidents endpoint not found — the API may be misconfigured.'
+  if (status === 422) return `422 · Invalid request — ${detail || 'check your active filters.'}`
+  if (status === 429) return '429 · Too many requests — slow down and retry.'
+  if (status >= 500) return `${status} · Server error${detail ? ` — ${detail}` : ' — the backend may be down or restarting.'}`
+  if (status) return `${status} · ${detail || 'Unexpected error loading incidents.'}`
+  return detail || 'Failed to load incidents.'
+}
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useIncidents } from '@/hooks/useIncidents'
 import { usePriorities } from '@/hooks/useConfig'
@@ -18,7 +37,7 @@ export default function IncidentsList() {
   const filterState = useIncidentFilters()
   const { apiFilters, multiStates, isWaitingForMe, page, setPage } = filterState
 
-  const { data, isLoading, isError, refetch } = useIncidents(apiFilters, !isWaitingForMe)
+  const { data, isLoading, isError, error, refetch } = useIncidents(apiFilters, !isWaitingForMe)
 
   const escalationMutation = useMutation({
     mutationFn: () => runAutoEscalations(200),
@@ -97,8 +116,8 @@ export default function IncidentsList() {
 
       {isError && (
         <div className="flex-none flex items-center gap-2 px-3 py-1.5 border-b border-red-200 bg-red-50 text-xs text-red-700">
-          Failed to load incidents.
-          <button onClick={() => refetch()} className="underline hover:no-underline font-medium">
+          <span>{parseIncidentError(error)}</span>
+          <button onClick={() => refetch()} className="underline hover:no-underline font-medium ml-1">
             Retry
           </button>
         </div>
