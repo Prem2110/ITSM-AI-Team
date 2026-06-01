@@ -1,5 +1,7 @@
 from __future__ import annotations
+import json
 import logging
+import os
 from fastapi import Depends, HTTPException, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 from ..db import get_db
@@ -20,6 +22,25 @@ except ImportError:
     )
     _xssec = None
 
+def _get_xsuaa_credentials() -> dict:
+    """Return XSUAA credentials: VCAP_SERVICES binding > env_settings fallback."""
+    vcap_raw = os.environ.get("VCAP_SERVICES", "")
+    if vcap_raw:
+        try:
+            vcap = json.loads(vcap_raw)
+            creds = vcap.get("xsuaa", [{}])[0].get("credentials", {})
+            if creds.get("clientid") and creds.get("url"):
+                return creds
+        except (json.JSONDecodeError, IndexError, KeyError):
+            pass
+    return {
+        "url": env_settings.xsuaa_url,
+        "clientid": env_settings.xsuaa_client_id,
+        "clientsecret": env_settings.xsuaa_client_secret,
+        "xsappname": env_settings.xsuaa_xsappname,
+    }
+
+
 _SCOPE_LEVELS: dict[str, list[str]] = {
     "Viewer": ["TicketRead"],
     "Support": ["TicketRead", "TicketWrite"],
@@ -29,7 +50,8 @@ _SCOPE_LEVELS: dict[str, list[str]] = {
 
 
 def _scopes_from_token(token_info: dict) -> list[str]:
-    xsappname = env_settings.xsuaa_xsappname
+    creds = _get_xsuaa_credentials()
+    xsappname = creds.get("xsappname") or env_settings.xsuaa_xsappname
     result: list[str] = []
     for raw_scope in token_info.get("scope", []):
         suffix = raw_scope.split(".")[-1]
@@ -52,15 +74,7 @@ async def get_caller_xsuaa(
         raise HTTPException(status_code=401, detail="Bearer token required")
     token = auth_header[len("Bearer "):]
     try:
-        sc = _xssec(
-            token,
-            {
-                "url": env_settings.xsuaa_url,
-                "clientid": env_settings.xsuaa_client_id,
-                "clientsecret": env_settings.xsuaa_client_secret,
-                "xsappname": env_settings.xsuaa_xsappname,
-            },
-        )
+        sc = _xssec(token, _get_xsuaa_credentials())
     except Exception as exc:
         logger.warning("auth.xsuaa: token validation failed — %s", exc)
         raise HTTPException(status_code=401, detail=f"Invalid token: {exc}") from exc

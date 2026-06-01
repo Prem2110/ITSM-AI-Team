@@ -56,14 +56,36 @@ _db_url = resolve_database_url()
 _is_hana = "hana" in _db_url or "hdbcli" in _db_url
 
 
+def _hana_extra_from_vcap() -> dict:
+    """Extract schema and SSL cert from VCAP_SERVICES hana binding, if present."""
+    vcap_raw = os.environ.get("VCAP_SERVICES", "")
+    if not vcap_raw:
+        return {}
+    try:
+        vcap = json.loads(vcap_raw)
+        creds = vcap.get("hana", [{}])[0].get("credentials", {})
+        extras: dict = {}
+        if creds.get("schema"):
+            extras["schema"] = creds["schema"]
+        if creds.get("certificate"):
+            extras["sslTrustStore"] = creds["certificate"]
+        return extras
+    except (json.JSONDecodeError, IndexError, KeyError):
+        return {}
+
+
 def _hana_connect_args() -> dict:
-    """Build hdbcli connect_args from env_settings."""
+    """Build hdbcli connect_args: VCAP_SERVICES schema/cert > env_settings fallback."""
+    vcap_extras = _hana_extra_from_vcap()
     args: dict = {
         "encrypt": env_settings.hana_encrypt,
         "sslValidateCertificate": env_settings.hana_ssl_validate,
     }
-    if env_settings.hana_schema:
-        args["CURRENTSCHEMA"] = env_settings.hana_schema
+    schema = vcap_extras.get("schema") or env_settings.hana_schema
+    if schema:
+        args["CURRENTSCHEMA"] = schema
+    if vcap_extras.get("sslTrustStore"):
+        args["sslTrustStore"] = vcap_extras["sslTrustStore"]
     return args
 
 

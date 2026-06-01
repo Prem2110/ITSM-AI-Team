@@ -372,6 +372,65 @@ class IncidentRepository:
             "overdue_open": overdue_open,
         }
 
+    # ── AI / Analytics ────────────────────────────────────────────────────────
+
+    async def get_sla_risk_incidents(self) -> list[Incident]:
+        result = await self.session.execute(
+            select(Incident)
+            .where(
+                Incident.state.notin_(_CLOSED_STATES),
+                Incident.sla_resolution_due.isnot(None),
+            )
+            .order_by(Incident.sla_resolution_due.asc())
+            .limit(50)
+        )
+        return list(result.scalars().all())
+
+    async def get_recent_incidents_for_analytics(self, hours: int = 168) -> list[Incident]:
+        since = utcnow() - timedelta(hours=hours)
+        result = await self.session.execute(
+            select(Incident).where(Incident.created_at >= since)
+        )
+        return list(result.scalars().all())
+
+    async def get_resolved_for_agent_stats(self, days: int = 30):
+        since = utcnow() - timedelta(days=days)
+        return (await self.session.execute(
+            select(
+                Incident.assignee_id,
+                Incident.category,
+                Incident.created_at,
+                Incident.resolved_at,
+            ).where(
+                Incident.state.in_(list(_CLOSED_STATES)),
+                Incident.resolved_at.isnot(None),
+                Incident.assignee_id.isnot(None),
+                Incident.created_at >= since,
+            )
+        )).all()
+
+    async def get_agent_open_counts(self):
+        return (await self.session.execute(
+            select(Incident.assignee_id, func.count(Incident.id).label("count"))
+            .where(
+                Incident.state.notin_(_CLOSED_STATES),
+                Incident.assignee_id.isnot(None),
+            )
+            .group_by(Incident.assignee_id)
+        )).all()
+
+    async def get_recent_resolved_with_notes(self, limit: int = 30) -> list[Incident]:
+        result = await self.session.execute(
+            select(Incident)
+            .where(
+                Incident.state.in_(list(_CLOSED_STATES)),
+                Incident.resolution_notes.isnot(None),
+            )
+            .order_by(Incident.resolved_at.desc())
+            .limit(limit)
+        )
+        return list(result.scalars().all())
+
     async def get_top_categories(self, days: int, limit: int) -> list[dict]:
         now = utcnow()
         since = now - timedelta(days=days)

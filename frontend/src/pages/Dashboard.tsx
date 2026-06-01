@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   LineChart, Line, BarChart, Bar, XAxis, YAxis,
-  Tooltip, ResponsiveContainer, CartesianGrid,
+  Tooltip, ResponsiveContainer, CartesianGrid, Cell,
 } from 'recharts'
 import { useTranslation } from 'react-i18next'
 import { useDashboard, useDashboardTrends, useDashboardSlaCompliance, useDashboardTopCategories, useDashboardOpsKpis } from '@/hooks/useDashboard'
@@ -243,11 +243,11 @@ function SlaWidget() {
 // ─── Priority Bar ─────────────────────────────────────────────────────────────
 
 const P_COLORS: Record<number, string> = {
-  0: '#7f0000',
-  1: '#b91c1c',
-  2: '#c2410c',
-  3: '#a16207',
-  4: '#15803d',
+  0: 'rgba(153,27,27,0.55)',
+  1: 'rgba(220,38,38,0.55)',
+  2: 'rgba(234,88,12,0.55)',
+  3: 'rgba(217,119,6,0.55)',
+  4: 'rgba(22,163,74,0.55)',
 }
 
 function PriorityBarChart() {
@@ -271,21 +271,21 @@ function PriorityBarChart() {
   const CustomTick = ({ x, y, payload }: any) => {
     const level = payload.value as number
     const style = {
-      0: { bg: 'rgba(127,0,0,0.12)',   border: 'rgba(127,0,0,0.35)',   text: '#7f0000', name: 'Highly Critical' },
-      1: { bg: 'rgba(220,38,38,0.10)', border: 'rgba(220,38,38,0.28)', text: '#b91c1c', name: 'Critical' },
-      2: { bg: 'rgba(234,88,12,0.10)', border: 'rgba(234,88,12,0.28)', text: '#c2410c', name: 'High' },
-      3: { bg: 'rgba(202,138,4,0.10)', border: 'rgba(202,138,4,0.28)', text: '#a16207', name: 'Medium' },
-      4: { bg: 'rgba(22,163,74,0.10)', border: 'rgba(22,163,74,0.28)', text: '#15803d', name: 'Low' },
+      0: { bg: 'rgba(153,27,27,0.14)',  border: 'rgba(153,27,27,0.40)',  text: '#991b1b', name: 'Highly Critical' },
+      1: { bg: 'rgba(220,38,38,0.12)',  border: 'rgba(220,38,38,0.38)',  text: '#dc2626', name: 'Critical' },
+      2: { bg: 'rgba(234,88,12,0.12)',  border: 'rgba(234,88,12,0.38)',  text: '#ea580c', name: 'High' },
+      3: { bg: 'rgba(217,119,6,0.12)',  border: 'rgba(217,119,6,0.38)',  text: '#d97706', name: 'Medium' },
+      4: { bg: 'rgba(22,163,74,0.12)',  border: 'rgba(22,163,74,0.38)',  text: '#16a34a', name: 'Low' },
     }[level] ?? { bg: '', border: '', text: '#64748b', name: `P${level}` }
     const label = priorities.find((p) => p.level === level)?.name ?? style.name
     return (
-      <foreignObject x={x - 62} y={y - 10} width={60} height={20}>
+      <foreignObject x={x - 98} y={y - 10} width={96} height={20}>
         <div
           style={{
             display: 'inline-flex',
             alignItems: 'center',
             height: 20,
-            padding: '0 6px',
+            padding: '0 7px',
             borderRadius: 3,
             fontSize: 11,
             fontWeight: 600,
@@ -303,11 +303,12 @@ function PriorityBarChart() {
 
   return (
     <Panel title={t('dashboard.openByPriority')}>
-      <ResponsiveContainer width="100%" height={160}>
+      <ResponsiveContainer width="100%" height={200}>
         <BarChart
           data={chartData}
           layout="vertical"
-          margin={{ top: 0, right: 8, left: 56, bottom: 0 }}
+          barCategoryGap="30%"
+          margin={{ top: 0, right: 8, left: 88, bottom: 0 }}
         >
           <XAxis
             type="number"
@@ -322,18 +323,15 @@ function PriorityBarChart() {
             tick={<CustomTick />}
             tickLine={false}
             axisLine={false}
-            width={64}
+            width={100}
           />
           <Tooltip
             formatter={(v: any) => [v, 'Open']}
             contentStyle={{ fontSize: 11, borderRadius: 3, border: '1px solid #e2e8f0' }}
           />
-          <Bar dataKey="count" radius={2} maxBarSize={18}>
+          <Bar dataKey="count" radius={[0, 3, 3, 0]} maxBarSize={18}>
             {chartData.map((entry) => (
-              <rect
-                key={entry.level}
-                fill={P_COLORS[entry.level] ?? '#64748b'}
-              />
+              <Cell key={entry.level} fill={P_COLORS[entry.level] ?? '#64748b'} />
             ))}
           </Bar>
         </BarChart>

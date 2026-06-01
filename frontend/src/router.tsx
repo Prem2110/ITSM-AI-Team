@@ -10,6 +10,7 @@ const Incidents = lazy(() => import('@/pages/Incidents'))
 const IncidentNew = lazy(() => import('@/pages/IncidentNew'))
 const IncidentDetail = lazy(() => import('@/pages/IncidentDetail'))
 const Dashboard = lazy(() => import('@/pages/Dashboard'))
+const PredictiveAnalytics = lazy(() => import('@/pages/PredictiveAnalytics'))
 
 export const router = createBrowserRouter([
   { path: '/setup', element: <Suspense fallback={<PageSpinner />}><Setup /></Suspense> },
@@ -38,6 +39,7 @@ export const router = createBrowserRouter([
       { path: 'incidents/new', element: <Suspense fallback={<PageSpinner />}><IncidentNew /></Suspense> },
       { path: 'incidents/:id', element: <Suspense fallback={<PageSpinner />}><IncidentDetail /></Suspense> },
       { path: 'dashboard', element: <Suspense fallback={<PageSpinner />}><Dashboard /></Suspense> },
+      { path: 'analytics', element: <Suspense fallback={<PageSpinner />}><PredictiveAnalytics /></Suspense> },
     ],
   },
   {

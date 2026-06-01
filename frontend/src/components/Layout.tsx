@@ -73,7 +73,6 @@ export default function Layout() {
   const navigate = useNavigate()
   const location = useLocation()
   const email = getFakeUser() ?? ''
-  const [navFilter, setNavFilter] = useState('')
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [settingsTab, setSettingsTab]   = useState<SettingsTab>('general')
   const { data: setupStatus } = useSetupStatus()
@@ -88,7 +87,8 @@ export default function Layout() {
     {
       header: '',
       items: [
-        { label: t('nav.dashboard'), to: '/dashboard', matchFn: (p) => p === '/dashboard' },
+        { label: t('nav.dashboard'),    to: '/dashboard',  matchFn: (p) => p === '/dashboard' },
+        { label: 'Predictive Analytics', to: '/analytics', matchFn: (p) => p === '/analytics' },
       ],
     },
     {
@@ -123,12 +123,6 @@ export default function Layout() {
            location.search === new URL(item.to, 'http://x').search
   }
 
-  const filteredSections = NAV_SECTIONS.map(section => ({
-    ...section,
-    items: section.items.filter(item =>
-      item.label.toLowerCase().includes(navFilter.toLowerCase())
-    ),
-  })).filter(s => s.items.length > 0 || navFilter === '')
 
   return (
     <div className="h-screen flex flex-col overflow-hidden">
@@ -167,19 +161,8 @@ export default function Layout() {
           className="flex-none flex flex-col bg-surface-50 border-r border-surface-200 overflow-y-auto"
           style={{ width: 240 }}
         >
-          <div className="px-2 pt-2 pb-1">
-            <input
-              type="text"
-              placeholder={t('nav.filterPlaceholder')}
-              value={navFilter}
-              onChange={e => setNavFilter(e.target.value)}
-              className="w-full text-xs border border-surface-200 bg-white px-2 py-1 focus:outline-none focus:border-surface-400 placeholder-surface-400"
-              style={{ borderRadius: 2 }}
-            />
-          </div>
-
           <nav className="flex-1 py-1 flex flex-col justify-between">
-            {filteredSections.map(section => (
+            {NAV_SECTIONS.map(section => (
               <div key={section.header} className="mb-2">
                 {section.header && (
                   <div className="px-3 py-1 text-2xs font-semibold text-surface-400 uppercase tracking-widest">

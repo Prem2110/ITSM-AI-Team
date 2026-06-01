@@ -54,14 +54,29 @@ modules:
       buildpack: python_buildpack
       health-check-type: http
       health-check-http-endpoint: /health
-      # Internal route only — browser traffic goes through the approuter
-      # Uncomment the line below once CF internal routing is confirmed working:
+      # Internal route only — browser traffic goes through the approuter.
+      # Enable no-route + CF network-policy once internal routing is verified:
+      #   cf add-network-policy itsm-approuter --destination-app itsm-api --port 8080 --protocol tcp
       # no-route: true
+    build-parameters:
+      # Exclude local dev secrets and artefacts from the .mtar package
+      ignore:
+        - ".env"
+        - ".env.*"
+        - "*.db"
+        - "*.db-shm"
+        - "*.db-wal"
+        - ".venv/"
+        - "venv/"
+        - "__pycache__/"
+        - "*.pyc"
+        - "*.pyo"
+        - "backend-dev.log"
     properties:
       AUTH_MODE: real
       TABLE_PREFIX: ITSMAI_
-      # CORS: restrict to your approuter URL after first deploy
-      # e.g. CORS_ORIGINS: '["https://itsm-approuter.cfapps.eu10.hana.ondemand.com"]'
+      # Restrict CORS to the approuter URL after first deploy, e.g.:
+      # CORS_ORIGINS: '["https://itsm-approuter.cfapps.eu10.hana.ondemand.com"]'
       CORS_ORIGINS: '["*"]'
     requires:
       - name: itsm-xsuaa
@@ -70,6 +85,17 @@ modules:
       - name: itsm-api-dest
         properties:
           url: ${default-url}
+    hooks:
+      - name: itsm-db-migrate
+        type: task
+        phases:
+          - blue-green.application.before-stop.live
+          - blue-green.application.before-stop.idle
+        parameters:
+          name: db-migrate
+          command: alembic upgrade head
+          memory: 256M
+          disk-quota: 512M
 
 # ── Resources ────────────────────────────────────────────────────────────────
 

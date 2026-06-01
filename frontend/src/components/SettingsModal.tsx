@@ -1,12 +1,13 @@
-import { useState, useEffect, type ReactNode } from 'react'
+import { useState, useEffect, useRef, type ReactNode } from 'react'
 import {
   X, Settings, Palette, Plus, Loader2,
-  Monitor, Moon, Sun, Check,
+  Monitor, Moon, Sun, Check, Brain, Eye, EyeOff,
 } from 'lucide-react'
 import { useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { useAppSettings } from '@/hooks/useAppSettings'
 import { patchAppSettings } from '@/api/setup'
+import { useAIStatus, usePatchAISettings, useTestConnection } from '@/hooks/useAI'
 import { useMe } from '@/hooks/useMe'
 import { usePriorities } from '@/hooks'
 import { PriorityBadge } from '@/components/PriorityBadge'
@@ -19,7 +20,7 @@ import {
   type Language,
 } from '@/contexts/SettingsContext'
 
-export type SettingsTab = 'general' | 'appearance'
+export type SettingsTab = 'general' | 'appearance' | 'ai'
 
 // ─── Timezone data ────────────────────────────────────────────────────────────
 
@@ -295,6 +296,299 @@ function GeneralTab() {
           </>
         )}
       </section>
+
+    </>
+  )
+}
+
+// ─── AI & Automation Tab ──────────────────────────────────────────────────────
+
+const OPENROUTER_MODELS = [
+  // Free tier
+  { id: 'openai/gpt-oss-120b:free',                       label: 'GPT OSS 120B',            free: true  },
+  { id: 'meta-llama/llama-3.1-8b-instruct:free',          label: 'Llama 3.1 8B',            free: true  },
+  { id: 'meta-llama/llama-3.2-3b-instruct:free',          label: 'Llama 3.2 3B',            free: true  },
+  { id: 'meta-llama/llama-3.3-70b-instruct:free',         label: 'Llama 3.3 70B',           free: true  },
+  { id: 'mistralai/mistral-7b-instruct:free',              label: 'Mistral 7B',              free: true  },
+  { id: 'google/gemma-2-9b-it:free',                       label: 'Gemma 2 9B',              free: true  },
+  { id: 'google/gemma-3-12b-it:free',                      label: 'Gemma 3 12B',             free: true  },
+  { id: 'qwen/qwen-2.5-7b-instruct:free',                  label: 'Qwen 2.5 7B',             free: true  },
+  { id: 'deepseek/deepseek-r1-distill-llama-70b:free',     label: 'DeepSeek R1 70B',         free: true  },
+  { id: 'microsoft/phi-3-mini-128k-instruct:free',         label: 'Phi-3 Mini 128K',         free: true  },
+  { id: 'openchat/openchat-7b:free',                       label: 'OpenChat 7B',             free: true  },
+  // Paid
+  { id: 'openai/gpt-4o-mini',                              label: 'GPT-4o Mini',             free: false },
+  { id: 'openai/gpt-4o',                                   label: 'GPT-4o',                  free: false },
+  { id: 'openai/o1-mini',                                  label: 'O1 Mini',                 free: false },
+  { id: 'openai/o3-mini',                                  label: 'O3 Mini',                 free: false },
+  { id: 'anthropic/claude-3-haiku',                        label: 'Claude 3 Haiku',          free: false },
+  { id: 'anthropic/claude-3.5-haiku',                      label: 'Claude 3.5 Haiku',        free: false },
+  { id: 'anthropic/claude-3.5-sonnet',                     label: 'Claude 3.5 Sonnet',       free: false },
+  { id: 'meta-llama/llama-3.1-70b-instruct',               label: 'Llama 3.1 70B',           free: false },
+  { id: 'meta-llama/llama-3.1-405b-instruct',              label: 'Llama 3.1 405B',          free: false },
+  { id: 'qwen/qwen-2.5-72b-instruct',                      label: 'Qwen 2.5 72B',            free: false },
+  { id: 'mistralai/mistral-large',                         label: 'Mistral Large',           free: false },
+  { id: 'deepseek/deepseek-chat',                          label: 'DeepSeek V3',             free: false },
+  { id: 'deepseek/deepseek-r1',                            label: 'DeepSeek R1',             free: false },
+]
+
+// ─── Model Picker combobox ────────────────────────────────────────────────────
+
+function ModelPicker({ value, onChange, disabled }: {
+  value: string
+  onChange: (v: string) => void
+  disabled: boolean
+}) {
+  const [open, setOpen] = useState(false)
+  const containerRef = useRef<HTMLDivElement>(null)
+  const inputCls = 'w-full border border-surface-200 bg-white text-xs px-2 py-1.5 focus:outline-none focus:border-surface-400'
+  const disabledCls = 'w-full border border-surface-100 bg-surface-50 text-xs px-2 py-1.5 text-surface-500 cursor-not-allowed'
+
+  useEffect(() => {
+    function handler(e: MouseEvent) {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) setOpen(false)
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [])
+
+  const filtered = value.trim()
+    ? OPENROUTER_MODELS.filter(m =>
+        m.id.toLowerCase().includes(value.toLowerCase()) ||
+        m.label.toLowerCase().includes(value.toLowerCase())
+      )
+    : OPENROUTER_MODELS
+
+  return (
+    <div ref={containerRef} className="relative">
+      <input
+        type="text"
+        value={value}
+        onChange={e => { onChange(e.target.value); setOpen(true) }}
+        onFocus={() => setOpen(true)}
+        disabled={disabled}
+        placeholder="Type or pick a model…"
+        className={disabled ? disabledCls : inputCls}
+        style={{ borderRadius: 2 }}
+      />
+      {open && !disabled && (
+        <div
+          className="absolute z-50 left-0 right-0 bg-white border border-surface-200 shadow-lg overflow-y-auto"
+          style={{ top: '100%', marginTop: 2, borderRadius: 3, maxHeight: 220 }}
+        >
+          {filtered.length === 0 ? (
+            <div className="px-3 py-2 text-xs text-surface-400 italic">No matches — your custom ID will be used</div>
+          ) : (
+            <>
+              {filtered.some(m => m.free) && (
+                <div className="px-3 pt-2 pb-1 text-2xs font-semibold text-surface-400 uppercase tracking-widest">Free</div>
+              )}
+              {filtered.filter(m => m.free).map(m => (
+                <button
+                  key={m.id}
+                  type="button"
+                  onMouseDown={e => { e.preventDefault(); onChange(m.id); setOpen(false) }}
+                  className={`flex items-center justify-between w-full text-left px-3 py-1.5 text-xs transition-colors hover:bg-violet-50 ${value === m.id ? 'bg-violet-50 text-violet-700' : 'text-surface-700'}`}
+                >
+                  <span>{m.id}</span>
+                  <span className="text-2xs font-semibold text-green-600 bg-green-50 border border-green-200 px-1.5 py-0.5 ml-2 flex-none" style={{ borderRadius: 3 }}>FREE</span>
+                </button>
+              ))}
+              {filtered.some(m => !m.free) && (
+                <div className="px-3 pt-2 pb-1 text-2xs font-semibold text-surface-400 uppercase tracking-widest border-t border-surface-100 mt-1">Paid</div>
+              )}
+              {filtered.filter(m => !m.free).map(m => (
+                <button
+                  key={m.id}
+                  type="button"
+                  onMouseDown={e => { e.preventDefault(); onChange(m.id); setOpen(false) }}
+                  className={`flex items-center w-full text-left px-3 py-1.5 text-xs transition-colors hover:bg-surface-50 ${value === m.id ? 'bg-surface-100 font-medium' : 'text-surface-700'}`}
+                >
+                  {m.id}
+                </button>
+              ))}
+            </>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function AITab() {
+  const { data: me } = useMe()
+  const isAdmin = me?.scopes?.includes('Admin') ?? false
+  const { data: aiStatus } = useAIStatus()
+  const patchAI = usePatchAISettings()
+  const testConn = useTestConnection()
+
+  const [apiKey, setApiKey]   = useState('')
+  const [model, setModel]     = useState('openai/gpt-oss-120b:free')
+  const [showKey, setShowKey] = useState(false)
+  const [saved, setSaved]     = useState(false)
+
+  const inputCls   = 'w-full border border-surface-200 bg-white text-xs px-2 py-1.5 focus:outline-none focus:border-surface-400'
+  const disabledCls = 'w-full border border-surface-100 bg-surface-50 text-xs px-2 py-1.5 text-surface-500 cursor-not-allowed'
+
+  useEffect(() => {
+    if (aiStatus) {
+      setModel(aiStatus.model || 'openai/gpt-oss-120b:free')
+      if (aiStatus.has_key) setApiKey('••••••••••••••••')
+    }
+  }, [aiStatus])
+
+  async function saveAI() {
+    const fields: Record<string, string | number> = { openrouter_model: model }
+    if (apiKey && !apiKey.startsWith('•')) fields.openrouter_api_key = apiKey
+    await patchAI.mutateAsync(fields)
+    setSaved(true)
+    setTimeout(() => setSaved(false), 2000)
+  }
+
+  const aiEnabled = Boolean(aiStatus?.ai_enabled)
+
+  return (
+    <>
+      {/* Master toggle */}
+      <section className="mb-8">
+        <SectionHeader>AI &amp; Automation</SectionHeader>
+        <p className="text-xs text-surface-400 mb-4">
+          Powers auto-classify, similar incidents, and agent suggestions via{' '}
+          <span className="font-medium text-surface-600">OpenRouter</span>.
+        </p>
+
+        <div
+          className="flex items-center justify-between px-4 py-3 border border-surface-200 bg-white mb-2"
+          style={{ borderRadius: 3 }}
+        >
+          <div>
+            <div className="flex items-center gap-2">
+              <Brain size={13} className="text-violet-500" />
+              <span className="text-xs font-semibold text-surface-700">Enable AI features</span>
+            </div>
+            <p className="text-2xs text-surface-400 mt-0.5 ml-5">
+              {aiEnabled ? 'AI features are active across the app' : 'AI features are disabled'}
+            </p>
+          </div>
+          <button
+            disabled={!isAdmin || patchAI.isPending}
+            onClick={() => patchAI.mutate({ ai_enabled: aiEnabled ? 0 : 1 })}
+            className={`relative inline-flex items-center transition-colors disabled:opacity-50 flex-none ${aiEnabled ? 'bg-violet-600' : 'bg-surface-300'}`}
+            style={{ width: 40, height: 22, borderRadius: 11 }}
+          >
+            <span
+              className="absolute bg-white transition-transform"
+              style={{
+                width: 16, height: 16, borderRadius: '50%', left: 3,
+                transform: aiEnabled ? 'translateX(18px)' : 'translateX(0)',
+                boxShadow: '0 1px 3px rgba(0,0,0,0.25)',
+              }}
+            />
+          </button>
+        </div>
+      </section>
+
+      {/* API credentials */}
+      <section className="mb-8">
+        <SectionHeader>OpenRouter Credentials</SectionHeader>
+
+        <div className="mb-4">
+          <label className="block text-xs font-medium text-surface-600 mb-1">API Key</label>
+          <div className="flex gap-1">
+            <input
+              type={showKey ? 'text' : 'password'}
+              value={apiKey}
+              onChange={e => setApiKey(e.target.value)}
+              onFocus={() => { if (apiKey.startsWith('•')) setApiKey('') }}
+              disabled={!isAdmin}
+              placeholder="sk-or-…"
+              className={`flex-1 ${isAdmin ? inputCls : disabledCls}`}
+              style={{ borderRadius: 2 }}
+            />
+            <button
+              type="button"
+              onClick={() => setShowKey(s => !s)}
+              className="border border-surface-200 px-2.5 flex items-center text-surface-400 hover:text-surface-600 bg-white transition-colors flex-none"
+              style={{ borderRadius: 2, height: 30 }}
+              title={showKey ? 'Hide key' : 'Show key'}
+            >
+              {showKey ? <EyeOff size={13} /> : <Eye size={13} />}
+            </button>
+          </div>
+          <p className="text-2xs text-surface-400 mt-1">
+            Get a key at <span className="font-medium text-surface-600">openrouter.ai/keys</span>
+          </p>
+        </div>
+
+        <div className="mb-5">
+          <label className="block text-xs font-medium text-surface-600 mb-1">Model</label>
+          <ModelPicker value={model} onChange={setModel} disabled={!isAdmin} />
+          <p className="text-2xs text-surface-400 mt-1">
+            Pick from the list or type any custom model ID from{' '}
+            <span className="font-medium text-surface-600">openrouter.ai/models</span>
+          </p>
+        </div>
+
+        {isAdmin && (
+          <div className="flex items-center gap-2">
+            <button
+              onClick={saveAI}
+              disabled={patchAI.isPending}
+              className="inline-flex items-center gap-1.5 border border-surface-300 bg-white text-surface-700 text-xs font-medium hover:bg-surface-50 disabled:opacity-50 transition-colors px-3"
+              style={{ height: 28, borderRadius: 2 }}
+            >
+              {patchAI.isPending
+                ? <Loader2 size={11} className="animate-spin" />
+                : saved ? <Check size={11} className="text-green-600" /> : null}
+              {saved ? 'Saved' : 'Save Settings'}
+            </button>
+          </div>
+        )}
+      </section>
+
+      {/* Test connection */}
+      <section className="mb-4">
+        <SectionHeader>Test Connection</SectionHeader>
+        <p className="text-xs text-surface-400 mb-4">
+          Verify the API key and model are working by sending a test request to OpenRouter.
+        </p>
+
+        <button
+          type="button"
+          onClick={() => testConn.mutate()}
+          disabled={testConn.isPending || !aiStatus?.has_key}
+          className="inline-flex items-center gap-2 border border-surface-300 bg-white text-surface-700 text-xs font-medium hover:bg-surface-50 disabled:opacity-50 transition-colors px-3 mb-4"
+          style={{ height: 30, borderRadius: 2 }}
+        >
+          {testConn.isPending
+            ? <><Loader2 size={11} className="animate-spin" /> Testing…</>
+            : <><Brain size={11} className="text-violet-500" /> Test Connection</>}
+        </button>
+
+        {testConn.data && (
+          <div
+            className={`px-4 py-3 border text-xs ${testConn.data.ok
+              ? 'bg-green-50 border-green-200 text-green-800'
+              : 'bg-red-50 border-red-200 text-red-800'}`}
+            style={{ borderRadius: 3 }}
+          >
+            <div className="flex items-center gap-2 font-semibold mb-1">
+              {testConn.data.ok ? <Check size={12} /> : <X size={12} />}
+              {testConn.data.ok ? 'Connected successfully' : 'Connection failed'}
+            </div>
+            <div className="text-2xs space-y-0.5 opacity-80">
+              <div>Model: <span className="font-medium">{testConn.data.model}</span></div>
+              <div>Latency: <span className="font-medium">{testConn.data.latency_ms}ms</span></div>
+              {testConn.data.error && <div>Error: {testConn.data.error}</div>}
+              {testConn.data.response && <div>Response: {testConn.data.response}</div>}
+            </div>
+          </div>
+        )}
+
+        {!aiStatus?.has_key && (
+          <p className="text-2xs text-surface-400">Save an API key first to enable testing.</p>
+        )}
+      </section>
     </>
   )
 }
@@ -435,6 +729,7 @@ function AppearanceTab() {
 const TABS: { id: SettingsTab; label: string; Icon: typeof Settings }[] = [
   { id: 'general',    label: 'General',    Icon: Settings },
   { id: 'appearance', label: 'Appearance', Icon: Palette  },
+  { id: 'ai',         label: 'AI & Automation', Icon: Brain    },
 ]
 
 interface Props {
@@ -546,6 +841,7 @@ export function SettingsModal({ open, defaultTab = 'general', onClose }: Props) 
           <div style={{ flex: 1, overflowY: 'auto', padding: '20px 24px' }}>
             {activeTab === 'general'    && <GeneralTab />}
             {activeTab === 'appearance' && <AppearanceTab />}
+            {activeTab === 'ai'         && <AITab />}
           </div>
         </div>
       </div>

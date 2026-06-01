@@ -5,7 +5,7 @@ from ..config import app_config
 
 
 def _validate_sla_target_keys(v: dict[str, int]) -> dict[str, int]:
-    expected_keys = {str(i) for i in range(1, len(app_config.priorities) + 1)}
+    expected_keys = {str(i) for i in range(len(app_config.priorities))}
     actual_keys = set(v.keys())
     missing = sorted(expected_keys - actual_keys)
     extra = sorted(actual_keys - expected_keys)
@@ -62,6 +62,9 @@ class AppSettingsPatch(BaseModel):
     timezone: str | None = None
     sla_targets: dict[str, int] | None = None
     resolution_codes: list[str] | None = None
+    ai_enabled: int | None = None
+    openrouter_api_key: str | None = None
+    openrouter_model: str | None = None
 
     @field_validator("company_name")
     @classmethod
@@ -110,6 +113,8 @@ class AppSettingsResponse(BaseModel):
     timezone: str
     sla_targets: dict | None
     resolution_codes: list | None
+    ai_enabled: int | None = 0
+    openrouter_model: str | None = None
     setup_completed_at: datetime
     setup_completed_by: str | None
     created_at: datetime

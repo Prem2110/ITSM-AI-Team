@@ -24,6 +24,8 @@ export interface AppSettingsData {
   timezone: string
   sla_targets: Record<string, number> | null
   resolution_codes: string[] | null
+  ai_enabled: number | null
+  openrouter_model: string | null
   setup_completed_at: string
   setup_completed_by: string | null
   created_at: string
