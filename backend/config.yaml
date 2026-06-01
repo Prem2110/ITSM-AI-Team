@@ -1,6 +1,6 @@
 # ITSM configuration — edit to customise for each customer deployment
 company_name: "Acme Corporation"
-number_prefix: "INC"
+number_prefix: "TCK"
 
 priorities:
   - name: Highly Critical
