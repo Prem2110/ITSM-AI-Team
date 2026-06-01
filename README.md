@@ -1,8 +1,8 @@
 # ITSM — IT Service Management
 
-> **New here?** Read the [Client Onboarding Guide](CLIENTONBOARDING.md) for step-by-step setup, database table reference, table prefix guide, and troubleshooting.
+> **New here?** Read the [Client Onboarding Guide](CLIENTONBOARDING.md) for step-by-step setup and troubleshooting.
 
-A single-tenant IT Service Management tool — a simplified ServiceNow-like ticketing system. Each customer gets their own deployment on SAP BTP Cloud Foundry.
+A single-tenant IT Service Management tool — a simplified ServiceNow-like ticketing system with AI-powered predictive analytics. Each customer gets their own deployment on SAP BTP Cloud Foundry.
 
 ---
 
@@ -12,17 +12,18 @@ A single-tenant IT Service Management tool — a simplified ServiceNow-like tick
 |-------|-----------|
 | Backend API | Python 3.11+, FastAPI, SQLAlchemy 2.0 (async), Alembic |
 | Database | SAP HANA (production) / SQLite (local dev) |
-| Frontend | React 18, Vite, TypeScript, Tailwind CSS, React Query |
+| Frontend | React 18, Vite, TypeScript, Tailwind CSS, TanStack Query |
 | Charts | Recharts |
-| Auth | SAP XSUAA (production) / fake-auth stub (local dev) |
-| Deployment | SAP BTP Cloud Foundry |
+| AI | OpenRouter API (any LLM — auto-classify, similar incidents, agent suggestions) |
+| Auth | Fake-auth stub (current) / SAP XSUAA JWT (add back post-stabilisation) |
+| Deployment | SAP BTP Cloud Foundry (MTA) |
 
 ---
 
 ## Prerequisites
 
 - Python 3.11+
-- Node.js 18+
+- Node.js 20+
 - [uv](https://docs.astral.sh/uv/) — `pip install uv`
 
 ---
@@ -33,9 +34,9 @@ A single-tenant IT Service Management tool — a simplified ServiceNow-like tick
 
 ```bash
 cd backend
-cp .env.example .env          # edit DATABASE_URL / AUTH_MODE if needed
+cp .env.example .env          # defaults to SQLite + AUTH_MODE=fake
 uv sync
-uv run alembic upgrade head   # creates dev.db
+uv run alembic upgrade head   # creates dev.db with all tables
 uv run python scripts/seed_dev.py   # optional: load sample data
 uv run uvicorn app.main:app --reload --port 8000
 ```
@@ -57,7 +58,7 @@ npm run dev
 
 ### 3. First login
 
-Open `http://localhost:5173`. The app redirects to `/setup` on a fresh database. Complete the wizard (company name + timezone), then log in with any email from the seeded users:
+Open `http://localhost:5173`. On a fresh database the app redirects to `/setup`. Complete the wizard, then log in with any email from the seeded users:
 
 | Email | Role |
 |-------|------|
@@ -71,30 +72,62 @@ Open `http://localhost:5173`. The app redirects to `/setup` on a fresh database.
 
 ```
 ITSM/
+├── mta.yaml                    MTA build descriptor (BTP deployment)
+├── deploy/
+│   ├── approuter/
+│   │   ├── xs-app.json         AppRouter routing + auth config
+│   │   └── package.json        @sap/approuter dependency
+│   ├── xs-security.json        XSUAA scopes + role collections (for when XSUAA is re-added)
+│   └── README.md               BTP deployment step-by-step guide
 ├── backend/
 │   ├── app/
-│   │   ├── auth/           Fake dev auth + SAP XSUAA JWT validation
-│   │   ├── models/         SQLAlchemy ORM models (users, incidents, events, attachments, app_settings)
-│   │   ├── repositories/   SQL data access (one file per model)
-│   │   ├── services/       Business logic (IncidentService, numbering)
-│   │   ├── routers/        FastAPI route handlers
-│   │   ├── schemas/        Pydantic request/response models
-│   │   ├── config.py       Config loader (YAML + env)
-│   │   ├── db.py           Async SQLAlchemy engine + session
-│   │   ├── main.py         FastAPI app, middleware, router registration
-│   │   └── state_machine.py  Transition validator
-│   ├── alembic/            Migration scripts
-│   ├── scripts/            seed_dev.py, inspect_hana.py, cleanup_hana.py
-│   ├── config.yaml         Per-customer settings (priorities, categories, states)
-│   └── .env.example        Environment variable template
+│   │   ├── auth/               Fake dev auth + XSUAA JWT validation (VCAP_SERVICES-aware)
+│   │   ├── models/             SQLAlchemy ORM: User, Incident, IncidentEvent, Attachment, AppSettings
+│   │   ├── repositories/       SQL data access — one file per model
+│   │   ├── services/
+│   │   │   ├── incident_service.py   Business logic: create, transition, SLA, escalation
+│   │   │   ├── ai_service.py         OpenRouter LLM client (classify, similar, suggest-assignee)
+│   │   │   └── numbering.py          Incident number sequencing
+│   │   ├── routers/
+│   │   │   ├── incidents.py    CRUD + transition + CSV export
+│   │   │   ├── ai.py           AI endpoints: SLA risk, anomalies, forecast, workload, classify
+│   │   │   ├── dashboard.py    Stats, trends, SLA compliance, KPIs
+│   │   │   ├── setup.py        Setup wizard + app settings
+│   │   │   ├── users.py        User listing
+│   │   │   ├── events.py       Incident audit trail
+│   │   │   ├── attachments.py  File attachments
+│   │   │   ├── session.py      Current user / session info
+│   │   │   └── config.py       Config endpoint (priorities, categories, states)
+│   │   ├── schemas/            Pydantic request/response models
+│   │   ├── middleware/         SetupGuardMiddleware (redirect to /setup on first run)
+│   │   ├── config.py           Config loader: YAML + env + VCAP_SERVICES
+│   │   ├── db.py               SQLAlchemy engine (async SQLite / sync HANA bridge)
+│   │   ├── main.py             FastAPI app, CORS, middleware, router registration
+│   │   ├── state_machine.py    Transition validator
+│   │   └── types.py            JSONText TypeDecorator (HANA-compatible JSON columns)
+│   ├── alembic/
+│   │   └── versions/           Migration scripts (SQLite + HANA compatible)
+│   ├── scripts/                seed_dev.py, inspect_hana.py, cleanup_hana.py
+│   ├── config.yaml             Per-customer settings (priorities, categories, states)
+│   ├── Procfile                CF start command: alembic upgrade head && uvicorn
+│   ├── runtime.txt             python-3.11.x
+│   ├── requirements.txt        CF buildpack dependencies (pip)
+│   └── .env.example            Environment variable template
 └── frontend/
     └── src/
-        ├── api/            Axios client + per-domain fetch helpers
-        ├── components/     Layout, badges, skeletons, route guards, toolbar
-        ├── contexts/       SettingsContext (theme, font size, dark mode)
-        ├── hooks/          React Query hooks (useIncidents, useMe, useDashboard, …)
-        ├── pages/          Login, Setup, Dashboard, Incidents, IncidentDetail, Settings
-        └── types/          TypeScript interfaces
+        ├── api/                Axios client + per-domain fetch helpers (incidents, ai, setup, …)
+        ├── components/         Layout, SettingsModal (General/Appearance/AI tabs), badges, skeletons
+        ├── contexts/           SettingsContext (theme, font, font size, language, dark mode)
+        ├── hooks/              React Query hooks (useIncidents, useMe, useDashboard, useAI, …)
+        ├── pages/
+        │   ├── Dashboard.tsx         Stats cards + Recharts charts
+        │   ├── PredictiveAnalytics.tsx  SLA risk, anomalies, forecast, agent workload, AI widgets
+        │   ├── Incidents.tsx         Filterable paginated incident list
+        │   ├── IncidentDetail.tsx    View, edit, transition, comment, similar incidents (AI)
+        │   ├── IncidentNew.tsx       Create incident form (with AI auto-classify)
+        │   ├── Setup.tsx             First-run wizard
+        │   └── Login.tsx             Fake-auth email picker
+        └── router.tsx              Route definitions + lazy loading
 ```
 
 ---
@@ -105,150 +138,261 @@ ITSM/
 
 ```
 HTTP request
-  → router       (auth check via require_scope(), serialisation)
-  → service      (business logic: create, transition, SLA calculation)
-  → repository   (async SQLAlchemy queries)
-  → model        (ORM class, maps to DB table)
+  → router        (require_scope() auth check, serialisation)
+  → service       (business logic: create, transition, SLA, AI)
+  → repository    (async SQLAlchemy queries)
+  → model         (ORM class → DB table)
 ```
 
 ### Configuration — two layers
 
-| File | Contents | When loaded |
+| File | Contents | Loaded into |
 |------|----------|------------|
-| `backend/config.yaml` | Per-customer settings: company name, number prefix, priorities (with SLA hours), categories, states, state_transitions | Once at import time → `app_config` |
-| `backend/.env` | Runtime env: `DATABASE_URL`, `AUTH_MODE`, XSUAA vars, `CORS_ORIGINS`, `TABLE_PREFIX` | Pydantic Settings → `env_settings` |
+| `backend/config.yaml` | Per-customer: company name, number prefix, priorities (SLA hours), categories, states, transitions | `app_config` (at import time) |
+| `backend/.env` | Runtime secrets: `DATABASE_URL`, `AUTH_MODE`, XSUAA vars, `CORS_ORIGINS`, `TABLE_PREFIX`, `HANA_*` | `env_settings` (Pydantic Settings) |
+
+On BTP, `VCAP_SERVICES` is parsed automatically for HANA and XSUAA credentials — env vars take priority over `.env` file values.
+
+### Auth modes
+
+| `AUTH_MODE` | Where used | How it works |
+|-------------|------------|-------------|
+| `fake` | Local dev + current BTP deploy | Frontend sends `X-Fake-User: <email>`; backend looks up user by email and maps role → scopes |
+| `real` | BTP with XSUAA re-enabled | Backend validates SAP XSUAA JWT from `VCAP_SERVICES`; scopes come from token claims |
+
+### Scope → permission mapping
+
+| Scope | Granted to | Can do |
+|-------|-----------|--------|
+| `TicketRead` | Viewer, Support, Agent, Admin | Read incidents, events, dashboard |
+| `TicketWrite` | Support, Agent, Admin | Create incidents, add comments, transitions |
+| `Agent` | Agent, Admin | Assign, patch, escalate, view agent workload |
+| `Admin` | Admin | App settings, AI config, user management |
 
 ### State machine
 
-Incident state transitions are driven entirely by `config.yaml → state_transitions`. The `state_machine.validate_transition(from, to, payload)` function raises `ValueError` for:
-- Any transition not listed in the config map.
-- A transition to `resolved` without both `resolution_code` and `resolution_notes`.
+Transitions are driven entirely by `config.yaml → state_transitions`. `state_machine.validate_transition()` raises `ValueError` for:
+- Any transition not listed in the config map
+- Transitioning to `resolved` without both `resolution_code` and `resolution_notes`
 
 ### SLA tracking
 
-When an incident is created, `sla_resolution_due` is calculated as `now + priority.sla_hours`. A background check or per-request flag sets `sla_breached = true` if the deadline has passed and the incident is not yet resolved.
+On incident creation, `sla_resolution_due = now + priority.sla_hours`. Each request to the list/detail endpoints calls `mark_overdue_sla_breached()` which bulk-updates `sla_breached = true` for overdue open incidents. Incidents in `on_hold` state are excluded (SLA paused).
 
 ---
 
-## API Endpoints
+## API Reference
 
-| Method | Path | Auth scope | Description |
-|--------|------|-----------|-------------|
-| GET | `/health` | None | Health check |
-| GET | `/api/session` | TicketRead | Current user info |
-| GET | `/api/config` | TicketRead | Priorities, categories, states from config.yaml |
-| POST | `/api/setup` | None | Complete setup wizard (creates app_settings row) |
-| GET | `/api/incidents` | TicketRead | List incidents (filterable, paginated) |
-| POST | `/api/incidents` | TicketWrite | Create new incident |
-| GET | `/api/incidents/{id}` | TicketRead | Get single incident |
-| PATCH | `/api/incidents/{id}` | TicketWrite | Update incident fields |
-| POST | `/api/incidents/{id}/transition` | Agent | Transition incident state |
-| GET | `/api/incidents/{id}/events` | TicketRead | Get audit trail events |
+### Core
+
+| Method | Path | Scope | Description |
+|--------|------|-------|-------------|
+| GET | `/health` | — | Health check |
+| GET | `/api/session` | TicketRead | Current user + scopes |
+| GET | `/api/config` | TicketRead | Priorities, categories, states |
+| GET | `/api/setup/status` | — | Whether first-run setup is complete |
+| POST | `/api/setup/complete` | — | Complete setup wizard |
+| GET | `/api/settings` | TicketRead | App settings (company, SLA targets, etc.) |
+| PATCH | `/api/settings` | Admin | Update app settings |
+
+### Incidents
+
+| Method | Path | Scope | Description |
+|--------|------|-------|-------------|
+| GET | `/api/incidents` | TicketRead | List (filterable by state, priority, assignee, category, SLA; paginated) |
+| POST | `/api/incidents` | TicketWrite | Create incident |
+| GET | `/api/incidents/{id}` | TicketRead | Incident detail with events |
+| PATCH | `/api/incidents/{id}` | Agent | Update fields (title, priority, category, assignee) |
+| POST | `/api/incidents/{id}/transition` | TicketWrite | Workflow state transition |
+| POST | `/api/incidents/escalations/run` | Agent | Auto-escalate SLA-breached incidents |
+| GET | `/api/incidents/reports/export.csv` | TicketRead | CSV export |
+
+### Events & Attachments
+
+| Method | Path | Scope | Description |
+|--------|------|-------|-------------|
+| GET | `/api/incidents/{id}/events` | TicketRead | Audit trail |
 | POST | `/api/incidents/{id}/events` | TicketWrite | Add comment / work note |
-| GET | `/api/users` | Agent | List all users (for assignment dropdown) |
-| GET | `/api/dashboard` | TicketRead | Stats, charts, SLA compliance data |
-| POST | `/api/attachments` | TicketWrite | Upload file attachment |
-| GET | `/api/attachments/{id}` | TicketRead | Download attachment |
+| POST | `/api/attachments` | TicketWrite | Upload file |
+| GET | `/api/attachments/{id}` | TicketRead | Download file |
+
+### Dashboard
+
+| Method | Path | Scope | Description |
+|--------|------|-------|-------------|
+| GET | `/api/dashboard/summary` | TicketRead | Stat cards (open, unassigned, breached, my open) |
+| GET | `/api/dashboard/trends` | TicketRead | Created vs resolved per day |
+| GET | `/api/dashboard/sla-compliance` | TicketRead | SLA met % |
+| GET | `/api/dashboard/top-categories` | TicketRead | Incident count by category |
+| GET | `/api/dashboard/ops-kpis` | TicketRead | Avg resolution hours, reopened, overdue |
+
+### AI & Predictive Analytics
+
+| Method | Path | Scope | Description |
+|--------|------|-------|-------------|
+| GET | `/api/ai/status` | TicketRead | Whether AI is enabled + configured model |
+| PATCH | `/api/ai/settings` | Admin | Enable/disable AI, set OpenRouter API key + model |
+| POST | `/api/ai/test-connection` | Admin | Test the configured OpenRouter key |
+| GET | `/api/ai/sla-risk` | TicketRead | Open incidents ranked by SLA risk score (0–1) |
+| GET | `/api/ai/anomalies` | TicketRead | Categories with 2.5× normal incident volume (last 2h) |
+| GET | `/api/ai/forecast` | TicketRead | 14-day history + 7-day linear forecast |
+| GET | `/api/ai/agent-workload` | Agent | Per-agent open count, resolved last 30d, avg hours |
+| POST | `/api/ai/classify` | TicketWrite | AI-suggest priority + category for a new incident |
+| GET | `/api/ai/incidents/{id}/similar` | TicketRead | Top 3 similar resolved incidents (AI) |
+| POST | `/api/ai/suggest-assignee` | Agent | AI-suggest best agent for an incident |
+
+### Users
+
+| Method | Path | Scope | Description |
+|--------|------|-------|-------------|
+| GET | `/api/users` | Agent | List all users |
 
 ---
 
 ## Frontend Routes
 
-| Path | Page | Description |
-|------|------|-------------|
-| `/setup` | Setup wizard | First-time configuration |
-| `/login` | Login | Fake-auth email picker |
-| `/incidents` | Incident list | Filterable, paginated table |
-| `/incidents/new` | New incident form | Create a ticket |
-| `/incidents/:id` | Incident detail | View, edit, transition, comment |
-| `/dashboard` | Dashboard | Stats cards + charts |
-| `/settings` | App settings | Manage users, resolution codes |
-| `/settings/appearance` | Appearance | Theme, font, density |
+| Path | Page |
+|------|------|
+| `/setup` | First-run setup wizard |
+| `/login` | Email picker (fake auth) |
+| `/dashboard` | Stats cards + Recharts charts |
+| `/analytics` | Predictive Analytics: SLA risk, anomalies, forecast, agent workload, AI widgets |
+| `/incidents` | Filterable, paginated incident list |
+| `/incidents/new` | Create incident (with AI auto-classify) |
+| `/incidents/:id` | Incident detail: view, edit, transition, comment, similar incidents |
 
 ---
 
 ## Database Tables
-
-See [CLIENTONBOARDING.md — Section 6](CLIENTONBOARDING.md#6-database-tables--schema-reference) for full column-level documentation.
 
 | Table | Purpose |
 |-------|---------|
 | `users` | All users (admin / agent / requester) |
 | `incidents` | Tickets — one row per incident |
 | `incident_events` | Append-only audit trail (comments, state changes, work notes) |
-| `attachments` | File attachment metadata and blob references |
-| `app_settings` | Singleton row set by the setup wizard |
+| `attachments` | File attachment metadata + blob |
+| `app_settings` | Singleton set by setup wizard (company, SLA targets, AI config) |
 
-HANA deployments also create a sequence `INC_SEQ` (or `{PREFIX}INC_SEQ`) for ticket numbering.
+`app_settings` AI columns: `ai_enabled` (SmallInt), `openrouter_api_key` (String), `openrouter_model` (String).
 
----
-
-## Table Prefix
-
-The `TABLE_PREFIX` environment variable prepends a string to every table name. Used when multiple ITSM deployments share a single HANA schema.
-
-| Scenario | `TABLE_PREFIX` | Tables |
-|----------|----------------|--------|
-| Production (dedicated HDI container) | *(empty)* | `users`, `incidents`, … |
-| Shared dev — personal | `ITSM_PREM_` | `ITSM_PREM_users`, … |
-| Shared dev — team QA | `ITSM_QA_` | `ITSM_QA_users`, … |
-
-See [CLIENTONBOARDING.md — Section 7](CLIENTONBOARDING.md#7-table-prefix-multi-tenant-deployments) for changing the prefix.
+HANA deployments also create a sequence `{PREFIX}INC_SEQ` for ticket numbering.
 
 ---
 
-## Configuration Reference (`backend/config.yaml`)
+## Configuration Reference
+
+### `backend/config.yaml`
 
 ```yaml
 company_name: "Acme Corporation"
-number_prefix: "INC"              # ticket numbers: INC-001, INC-002, …
+number_prefix: "INC"          # ticket numbers: INC-001, INC-002, …
 
-priorities:                       # ordered 1 (highest) → 4 (lowest)
-  - name: Critical  color: red     sla_hours: 4
-  - name: High      color: orange  sla_hours: 8
-  - name: Medium    color: yellow  sla_hours: 24
-  - name: Low       color: green   sla_hours: 72
+priorities:                   # index = priority int in API (0 = highest)
+  - name: Highly Critical  sla_hours: 1
+  - name: Critical         sla_hours: 4
+  - name: High             sla_hours: 8
+  - name: Medium           sla_hours: 24
+  - name: Low              sla_hours: 72
 
 categories:
-  - Network
-  - Hardware
-  - Software
-  - Account Access
-  - SAP Integration
+  - Network | Hardware | Software | Account Access | SAP Integration
 
 states:
   - new | assigned | in_progress | on_hold | resolved | closed
 
 state_transitions:
-  new: [assigned]
-  assigned: [in_progress, on_hold, new]
+  new:         [assigned]
+  assigned:    [in_progress, on_hold, new]
   in_progress: [on_hold, resolved, assigned]
-  on_hold: [in_progress, assigned]
-  resolved: [closed, in_progress]
-  closed: []
+  on_hold:     [in_progress, assigned]
+  resolved:    [closed, in_progress]
+  closed:      []
 ```
 
+### `backend/.env` key variables
+
+| Variable | Default | Notes |
+|----------|---------|-------|
+| `DATABASE_URL` | `sqlite+aiosqlite:///./dev.db` | Override for non-HANA production |
+| `AUTH_MODE` | `fake` | `fake` or `real` (XSUAA) |
+| `TABLE_PREFIX` | *(empty)* | Prefix for all table names e.g. `ITSMAI_` |
+| `CORS_ORIGINS` | `["*"]` | Restrict to approuter URL in production |
+| `HANA_ADDRESS` | *(empty)* | HANA Cloud host |
+| `HANA_PORT` | `0` | Usually `443` |
+| `HANA_USER` | *(empty)* | HDI runtime user |
+| `HANA_PASSWORD` | *(empty)* | |
+| `HANA_SCHEMA` | *(empty)* | Explicit schema (optional — auto-detected from VCAP_SERVICES) |
+| `HANA_ENCRYPT` | `true` | |
+| `HANA_SSL_VALIDATE` | `false` | |
+
 ---
 
-## Auth Modes
+## External API Integration
 
-| `AUTH_MODE` | Usage | How it works |
-|-------------|-------|-------------|
-| `fake` | Local dev / QA | Frontend sends `X-Fake-User: <email>` header; backend looks up user by email and derives scopes from role |
-| `real` | SAP BTP production | Backend validates SAP XSUAA JWT; scopes come from token claims |
-
----
-
-## Running against SAP HANA
-
-See [CLIENTONBOARDING.md — Section 8](CLIENTONBOARDING.md#8-sap-hana-production-setup) for full setup steps.
+Any system can create incidents by POSTing directly to the backend:
 
 ```bash
-cd backend
-# create backend/.env.hana with HANA_ADDRESS, PORT, USER, PASSWORD, SCHEMA
-uv run python scripts/inspect_hana.py   # check for table collisions
-uv run alembic upgrade head             # create tables
+curl -X POST https://<itsm-api-url>/api/incidents \
+  -H "Content-Type: application/json" \
+  -H "X-Fake-User: admin@yourcompany.com" \
+  -d '{
+    "title": "SAP system down in Plant 1200",
+    "description": "Users unable to log in since 09:00 UTC",
+    "priority": 1,
+    "category": "SAP Integration",
+    "source": "email"
+  }'
 ```
+
+| Field | Required | Values |
+|-------|----------|--------|
+| `title` | ✅ | any string |
+| `description` | ✅ | any string |
+| `priority` | ✅ | `0` Highly Critical · `1` Critical · `2` High · `3` Medium · `4` Low |
+| `category` | ✅ | `Network` · `Hardware` · `Software` · `Account Access` · `SAP Integration` |
+| `source` | ✅ | `web` · `email` · `classifier_escalation` · `fix_failed_escalation` |
+| `requester_id` | ❌ | UUID — defaults to the `X-Fake-User` |
+| `assignee_id` | ❌ | UUID of an agent |
+
+When XSUAA is re-enabled, replace `X-Fake-User` with `Authorization: Bearer <xsuaa_token>` obtained via client credentials flow.
+
+---
+
+## SAP BTP Deployment
+
+See [`deploy/README.md`](deploy/README.md) for the full step-by-step guide. Summary:
+
+```bash
+# Prerequisites: mbt, CF CLI, CF MultiApps plugin
+mbt build
+cf login -a https://api.eu10.hana.ondemand.com
+cf deploy mta_archives/itsm_0.1.0.mtar -f
+```
+
+The `Procfile` runs `alembic upgrade head` automatically before uvicorn on every deploy.
+
+**Current BTP state:** `AUTH_MODE=fake`, XSUAA removed for initial stabilisation. Re-add by:
+1. Restoring `itsm-xsuaa` resource in `mta.yaml`
+2. Setting `AUTH_MODE: real`
+3. Switching `xs-app.json` back to `authenticationMethod: route`
+
+---
+
+## AI Features
+
+AI features are **opt-in** — disabled until an admin provides an [OpenRouter](https://openrouter.ai) API key in Settings → AI & Automation.
+
+| Feature | Where |
+|---------|-------|
+| Auto-classify (priority + category suggestion) | New incident form + Predictive Analytics page |
+| Similar resolved incidents | Incident detail page |
+| Suggest assignee | Incident detail page (agents only) |
+| SLA risk monitor | Predictive Analytics (always on, no AI key needed) |
+| Anomaly detection | Predictive Analytics (always on) |
+| 7-day incident forecast | Predictive Analytics (always on) |
+| Agent workload table | Predictive Analytics (always on) |
+
+Free OpenRouter models (GPT OSS 120B, Llama 3.3 70B, etc.) work fine for all AI features.
 
 ---
 
@@ -256,14 +400,12 @@ uv run alembic upgrade head             # create tables
 
 ```bash
 cd backend
-uv run pytest                          # all tests (SQLite in-memory)
+uv run pytest                              # all tests (SQLite in-memory)
 uv run pytest tests/test_incidents.py -v   # single file
-HANA_TEST=1 uv run pytest -v           # against real HANA
-```
+HANA_TEST=1 uv run pytest -v               # against real HANA
 
-```bash
 cd frontend
-npx tsc --noEmit                       # TypeScript type-check
+npx tsc --noEmit                           # TypeScript type-check
 ```
 
 ---
@@ -272,14 +414,20 @@ npx tsc --noEmit                       # TypeScript type-check
 
 ```bash
 # Backend
-uv run alembic upgrade head                          # apply migrations
-uv run alembic revision --autogenerate -m "change"   # generate migration
+uv run alembic upgrade head                          # apply all migrations
+uv run alembic revision --autogenerate -m "change"   # generate migration after model change
 uv run python scripts/seed_dev.py                    # load sample data
-uv run python scripts/inspect_hana.py                # HANA collision check
-uv run python scripts/cleanup_hana.py                # HANA table cleanup
+uv run python scripts/inspect_hana.py                # check for HANA table collisions
+uv run python scripts/cleanup_hana.py                # drop HANA tables (careful)
 
 # Frontend
-npm run dev        # dev server
-npm run build      # production build
-npx tsc --noEmit   # type-check
+npm run dev        # dev server (http://localhost:5173)
+npm run build      # production build → dist/
+npx tsc --noEmit   # type-check without building
+
+# BTP (from project root)
+mbt build                                            # build .mtar archive
+cf deploy mta_archives/itsm_0.1.0.mtar -f           # deploy to CF
+cf logs itsm-api --recent                            # check backend logs
+cf run-task itsm-api --command "alembic upgrade head" --name migrate   # manual migration
 ```
