@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, type ReactNode } from 'react'
+import { useNavigate } from 'react-router-dom'
 import {
   X, Settings, Palette, Plus, Loader2,
   Monitor, Moon, Sun, Check, Brain, Eye, EyeOff,
@@ -7,6 +8,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { useAppSettings } from '@/hooks/useAppSettings'
 import { patchAppSettings } from '@/api/setup'
+import client from '@/api/client'
 import { useAIStatus, usePatchAISettings, useTestConnection } from '@/hooks/useAI'
 import { useMe } from '@/hooks/useMe'
 import { usePriorities } from '@/hooks'
@@ -343,6 +345,203 @@ function GeneralTab() {
         )}
       </section>
 
+      {isAdmin && <DangerZone />}
+
+    </>
+  )
+}
+
+// ─── Danger Zone ─────────────────────────────────────────────────────────────
+
+type ResetTarget = 'data' | 'factory' | null
+
+function DangerZone() {
+  const qc = useQueryClient()
+  const navigate = useNavigate()
+  const [target, setTarget]   = useState<ResetTarget>(null)
+  const [confirm, setConfirm] = useState('')
+  const [busy, setBusy]       = useState(false)
+  const [result, setResult]   = useState<string | null>(null)
+  const [err, setErr]         = useState<string | null>(null)
+
+  const DATA_PHRASE    = 'RESET'
+  const FACTORY_PHRASE = 'FACTORY RESET'
+
+  function openModal(t: ResetTarget) {
+    setTarget(t); setConfirm(''); setResult(null); setErr(null)
+  }
+  function closeModal() {
+    setTarget(null); setConfirm(''); setResult(null); setErr(null)
+  }
+
+  const phrase     = target === 'factory' ? FACTORY_PHRASE : DATA_PHRASE
+  const confirmed  = confirm === phrase
+  const endpoint   = target === 'factory' ? '/admin/factory-reset' : '/admin/reset-data'
+
+  async function execute() {
+    setBusy(true); setErr(null); setResult(null)
+    try {
+      const { data } = await client.post(endpoint)
+      const d = data.deleted
+      if (target === 'factory') {
+        setResult(`Deleted ${d.incidents} incidents, ${d.users} users, ${d.settings} settings row.`)
+        qc.clear()
+        setTimeout(() => { navigate('/setup', { replace: true }) }, 1800)
+      } else {
+        setResult(`Deleted ${d.incidents} incidents, ${d.events} events, ${d.attachments} attachments.`)
+        qc.invalidateQueries()
+      }
+    } catch (e: any) {
+      setErr(e?.response?.data?.detail ?? 'An error occurred.')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const ACTIONS = [
+    {
+      key: 'data' as const,
+      title: 'Reset Data',
+      description: 'Deletes all incidents, events and attachments. Users and settings are kept.',
+      phrase: DATA_PHRASE,
+      buttonLabel: 'Reset Data',
+      confirmLabel: 'Yes, delete all data',
+      color: '#b45309',
+      bg: 'rgba(180,83,9,0.07)',
+      border: 'rgba(180,83,9,0.25)',
+    },
+    {
+      key: 'factory' as const,
+      title: 'Factory Reset',
+      description: 'Deletes everything — incidents, users, and settings. Returns the app to the setup wizard.',
+      phrase: FACTORY_PHRASE,
+      buttonLabel: 'Factory Reset',
+      confirmLabel: 'Yes, wipe everything',
+      color: '#b91c1c',
+      bg: 'rgba(185,28,28,0.07)',
+      border: 'rgba(185,28,28,0.25)',
+    },
+  ]
+
+  const activeAction = ACTIONS.find(a => a.key === target)
+
+  return (
+    <>
+      {/* Divider */}
+      <div className="border-t border-red-200 mt-6 mb-6" />
+
+      {/* Header */}
+      <div className="mb-4 flex items-center gap-2">
+        <div className="flex-1 h-px bg-red-200" />
+        <span className="text-2xs font-bold text-red-500 uppercase tracking-widest px-2">Danger Zone</span>
+        <div className="flex-1 h-px bg-red-200" />
+      </div>
+
+      <div className="flex flex-col gap-3">
+        {ACTIONS.map(action => (
+          <div
+            key={action.key}
+            className="flex items-center justify-between px-4 py-3"
+            style={{ background: action.bg, border: `1px solid ${action.border}`, borderRadius: 3 }}
+          >
+            <div>
+              <div className="text-xs font-semibold mb-0.5" style={{ color: action.color }}>{action.title}</div>
+              <div className="text-2xs text-surface-500">{action.description}</div>
+            </div>
+            <button
+              onClick={() => openModal(action.key)}
+              className="flex-none text-2xs font-semibold px-3 py-1.5 border transition-colors ml-4"
+              style={{
+                color: action.color, borderColor: action.border,
+                background: 'white', borderRadius: 2,
+              }}
+            >
+              {action.buttonLabel}
+            </button>
+          </div>
+        ))}
+      </div>
+
+      {/* Confirmation modal */}
+      {target && activeAction && (
+        <div
+          onClick={closeModal}
+          style={{
+            position: 'fixed', inset: 0, zIndex: 2000,
+            background: 'rgba(15,23,42,0.55)', backdropFilter: 'blur(3px)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24,
+          }}
+        >
+          <div
+            onClick={e => e.stopPropagation()}
+            style={{
+              background: 'var(--bg-primary)', border: `1px solid ${activeAction.border}`,
+              borderRadius: 6, width: '100%', maxWidth: 420, padding: 24,
+              boxShadow: '0 24px 64px rgba(0,0,0,0.22)',
+            }}
+          >
+            <div className="text-sm font-semibold mb-1" style={{ color: activeAction.color }}>
+              {activeAction.title}
+            </div>
+            <p className="text-xs text-surface-500 mb-4" style={{ lineHeight: 1.6 }}>
+              {activeAction.description}
+              {' '}This action <strong>cannot be undone</strong>.
+            </p>
+
+            {!result && (
+              <>
+                <label className="block text-xs font-medium text-surface-600 mb-1">
+                  Type <span className="font-bold" style={{ color: activeAction.color }}>{activeAction.phrase}</span> to confirm
+                </label>
+                <input
+                  type="text"
+                  value={confirm}
+                  onChange={e => setConfirm(e.target.value)}
+                  placeholder={activeAction.phrase}
+                  autoFocus
+                  className="w-full border border-surface-200 bg-white text-xs px-2 py-1.5 focus:outline-none mb-4"
+                  style={{ borderRadius: 2, borderColor: confirmed ? activeAction.border : undefined }}
+                />
+                {err && (
+                  <div className="text-2xs text-red-600 border border-red-200 bg-red-50 px-3 py-2 mb-3" style={{ borderRadius: 2 }}>
+                    {err}
+                  </div>
+                )}
+                <div className="flex gap-2 justify-end">
+                  <button
+                    onClick={closeModal}
+                    className="text-xs border border-surface-200 text-surface-600 hover:bg-surface-50 px-3 py-1.5 transition-colors"
+                    style={{ borderRadius: 2 }}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={execute}
+                    disabled={!confirmed || busy}
+                    className="text-xs font-semibold text-white disabled:opacity-40 px-3 py-1.5 transition-colors flex items-center gap-1.5"
+                    style={{ background: confirmed ? activeAction.color : '#94a3b8', borderRadius: 2, border: 'none' }}
+                  >
+                    {busy && <Loader2 size={11} className="animate-spin" />}
+                    {busy ? 'Working…' : activeAction.confirmLabel}
+                  </button>
+                </div>
+              </>
+            )}
+
+            {result && (
+              <div className="text-xs text-surface-600">
+                <div className="flex items-center gap-2 text-green-700 font-semibold mb-2">
+                  <Check size={14} /> Done
+                </div>
+                <div className="text-surface-500">{result}</div>
+                {target === 'factory' && (
+                  <div className="text-2xs text-surface-400 mt-2">Redirecting to setup wizard…</div>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </>
   )
 }

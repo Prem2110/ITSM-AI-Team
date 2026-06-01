@@ -4,7 +4,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from .config import env_settings
-from .routers import session, incidents, events, attachments, config, users, dashboard, setup, ai
+from .routers import session, incidents, events, attachments, config, users, dashboard, setup, ai, admin
 from .middleware.setup_guard import SetupGuardMiddleware
 
 logging.basicConfig(
@@ -55,6 +55,7 @@ app.include_router(users.router)
 app.include_router(dashboard.router)
 app.include_router(setup.router)
 app.include_router(ai.router)
+app.include_router(admin.router)
 
 
 @app.get("/health")
