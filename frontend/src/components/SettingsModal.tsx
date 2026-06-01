@@ -140,19 +140,22 @@ function GeneralTab() {
   const { data: priorities = [] } = usePriorities()
   const isAdmin = me?.scopes?.includes('Admin') ?? false
 
-  const [companyName, setCompanyName] = useState('')
-  const [timezone, setTimezone]       = useState('UTC')
-  const [slaTargets, setSlaTargets]   = useState<Record<string, number>>({ '0': 1, '1': 4, '2': 8, '3': 24, '4': 72 })
-  const [codes, setCodes]             = useState<string[]>([])
-  const [newCode, setNewCode]         = useState('')
-  const [saving, setSaving]           = useState<string | null>(null)
-  const [saved, setSaved]             = useState<string | null>(null)
+  const [companyName, setCompanyName]   = useState('')
+  const [timezone, setTimezone]         = useState('UTC')
+  const [slaTargets, setSlaTargets]     = useState<Record<string, number>>({ '0': 1, '1': 4, '2': 8, '3': 24, '4': 72 })
+  const [categories, setCategories]     = useState<string[]>([])
+  const [newCategory, setNewCategory]   = useState('')
+  const [codes, setCodes]               = useState<string[]>([])
+  const [newCode, setNewCode]           = useState('')
+  const [saving, setSaving]             = useState<string | null>(null)
+  const [saved, setSaved]               = useState<string | null>(null)
 
   useEffect(() => {
     if (settings) {
       setCompanyName(settings.company_name)
       setTimezone(settings.timezone)
       setSlaTargets(settings.sla_targets ?? { '0': 1, '1': 4, '2': 8, '3': 24, '4': 72 })
+      setCategories(settings.categories ?? [])
       setCodes(settings.resolution_codes ?? [])
     }
   }, [settings])
@@ -174,6 +177,12 @@ function GeneralTab() {
     const c = newCode.trim()
     if (c && !codes.includes(c)) setCodes(prev => [...prev, c])
     setNewCode('')
+  }
+
+  function addCategory() {
+    const c = newCategory.trim()
+    if (c && !categories.includes(c)) setCategories(prev => [...prev, c])
+    setNewCategory('')
   }
 
   const inputCls = 'w-full border border-surface-200 bg-white text-xs px-2 py-1.5 focus:outline-none focus:border-surface-400'
@@ -257,6 +266,43 @@ function GeneralTab() {
           <SaveButton section="sla" saving={saving} saved={saved}
             disabled={Object.values(slaTargets).some(v => !v || v < 1)}
             onClick={() => saveSection('sla', { sla_targets: slaTargets })} />
+        )}
+      </section>
+
+      <section className="mb-8">
+        <SectionHeader>Incident Categories</SectionHeader>
+        <p className="text-xs text-surface-400 mb-4">Categories used to classify incidents. Removing a category won't affect existing tickets.</p>
+        <div className="flex flex-col gap-1 mb-3">
+          {categories.map((cat, idx) => (
+            <div key={idx} className="flex items-center justify-between border border-surface-200 bg-white px-2 py-1" style={{ borderRadius: 2 }}>
+              <span className="text-xs text-surface-700">{cat}</span>
+              {isAdmin && (
+                <button onClick={() => setCategories(prev => prev.filter((_, i) => i !== idx))}
+                  className="text-surface-400 hover:text-surface-700 transition-colors ml-2 flex-none">
+                  <X size={12} />
+                </button>
+              )}
+            </div>
+          ))}
+          {categories.length === 0 && <div className="text-xs text-surface-400 py-1">No categories defined.</div>}
+        </div>
+        {isAdmin && (
+          <>
+            <div className="flex gap-1 mb-4">
+              <input type="text" value={newCategory} onChange={e => setNewCategory(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && addCategory()} placeholder="Add a category…"
+                className="flex-1 border border-surface-200 bg-white text-xs px-2 py-1.5 focus:outline-none focus:border-surface-400"
+                style={{ borderRadius: 2 }} />
+              <button onClick={addCategory} disabled={!newCategory.trim()}
+                className="border border-surface-200 px-2 py-1 text-xs text-surface-600 hover:bg-surface-50 disabled:opacity-40 transition-colors flex items-center"
+                style={{ borderRadius: 2 }}>
+                <Plus size={12} />
+              </button>
+            </div>
+            <SaveButton section="categories" saving={saving} saved={saved}
+              disabled={categories.length === 0}
+              onClick={() => saveSection('categories', { categories })} />
+          </>
         )}
       </section>
 

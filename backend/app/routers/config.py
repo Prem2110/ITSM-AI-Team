@@ -1,8 +1,11 @@
 from __future__ import annotations
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
+from sqlalchemy.ext.asyncio import AsyncSession
+from ..db import get_db
 from ..auth.permissions import require_scope
 from ..auth.context import CallerContext
 from ..config import app_config
+from ..repositories.app_settings_repository import AppSettingsRepository
 
 router = APIRouter(prefix="/api/config", tags=["config"])
 
@@ -16,7 +19,13 @@ async def get_priorities(caller: CallerContext = require_scope("TicketRead")) ->
 
 
 @router.get("/categories")
-async def get_categories(caller: CallerContext = require_scope("TicketRead")) -> list[str]:
+async def get_categories(
+    caller: CallerContext = require_scope("TicketRead"),
+    session: AsyncSession = Depends(get_db),
+) -> list[str]:
+    settings = await AppSettingsRepository(session).get()
+    if settings and settings.categories:
+        return settings.categories
     return app_config.categories
 
 

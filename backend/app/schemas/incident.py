@@ -26,13 +26,6 @@ class IncidentCreate(BaseModel):
             raise ValueError(f"priority must be 0–{len(app_config.priorities) - 1}")
         return v
 
-    @field_validator("category")
-    @classmethod
-    def valid_category(cls, v: str) -> str:
-        if v not in app_config.categories:
-            raise ValueError(f"category must be one of: {app_config.categories}")
-        return v
-
     @field_validator("source")
     @classmethod
     def valid_source(cls, v: str) -> str:
@@ -58,13 +51,6 @@ class IncidentCreateRequest(BaseModel):
     def valid_priority(cls, v: int) -> int:
         if not 0 <= v <= len(app_config.priorities) - 1:
             raise ValueError(f"priority must be 0–{len(app_config.priorities) - 1}")
-        return v
-
-    @field_validator("category")
-    @classmethod
-    def valid_category(cls, v: str) -> str:
-        if v not in app_config.categories:
-            raise ValueError(f"category must be one of: {app_config.categories}")
         return v
 
     @field_validator("source")

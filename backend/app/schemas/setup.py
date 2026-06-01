@@ -32,6 +32,7 @@ class SetupCompleteRequest(BaseModel):
     admin: AdminBootstrap
     sla_targets: dict[str, int]
     resolution_codes: list[str]
+    categories: list[str] | None = None
 
     @field_validator("company_name")
     @classmethod
@@ -62,6 +63,7 @@ class AppSettingsPatch(BaseModel):
     timezone: str | None = None
     sla_targets: dict[str, int] | None = None
     resolution_codes: list[str] | None = None
+    categories: list[str] | None = None
     ai_enabled: int | None = None
     openrouter_api_key: str | None = None
     openrouter_model: str | None = None
@@ -113,6 +115,7 @@ class AppSettingsResponse(BaseModel):
     timezone: str
     sla_targets: dict | None
     resolution_codes: list | None
+    categories: list | None = None
     ai_enabled: int | None = 0
     openrouter_model: str | None = None
     setup_completed_at: datetime

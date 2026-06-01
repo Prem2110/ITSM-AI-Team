@@ -41,11 +41,13 @@ async def complete_setup(
     await session.flush()
 
     now = utcnow()
+    from ..config import app_config as _cfg
     await repo.create({
         "company_name": req.company_name,
         "timezone": req.timezone,
         "sla_targets": req.sla_targets,
         "resolution_codes": req.resolution_codes,
+        "categories": req.categories if req.categories else _cfg.categories,
         "setup_completed_at": now,
         "setup_completed_by": admin.id,
         "created_at": now,

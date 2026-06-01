@@ -8,6 +8,14 @@ import { ChevronRight, ChevronLeft, Check, X, Plus, Loader2 } from 'lucide-react
 import { PriorityBadge } from '@/components/PriorityBadge'
 import type { Priority } from '@/types'
 
+const DEFAULT_CATEGORIES = [
+  'Network',
+  'Hardware',
+  'Software',
+  'Account Access',
+  'SAP Integration',
+]
+
 const DEFAULT_RESOLUTION_CODES = [
   'Fixed',
   'Workaround',
@@ -55,11 +63,12 @@ interface WizardState {
   adminName: string
   adminEmail: string
   slaTargets: Record<string, number>
+  categories: string[]
   resolutionCodes: string[]
 }
 
 const TIMEZONES = getTimezones()
-const TOTAL_STEPS = 6
+const TOTAL_STEPS = 7
 
 export default function Setup() {
   const navigate = useNavigate()
@@ -67,6 +76,7 @@ export default function Setup() {
   const [step, setStep] = useState(1)
   const [priorities, setPriorities] = useState<Priority[]>([])
   const [newCode, setNewCode] = useState('')
+  const [newCategory, setNewCategory] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [alreadyDone, setAlreadyDone] = useState(false)
@@ -76,6 +86,7 @@ export default function Setup() {
     adminName: '',
     adminEmail: '',
     slaTargets: { '0': 1, '1': 4, '2': 8, '3': 24, '4': 72 },
+    categories: [...DEFAULT_CATEGORIES],
     resolutionCodes: [...DEFAULT_RESOLUTION_CODES],
   })
 
@@ -115,6 +126,18 @@ export default function Setup() {
     setNewCode('')
   }
 
+  function removeCategory(idx: number) {
+    setForm((f) => ({ ...f, categories: f.categories.filter((_, i) => i !== idx) }))
+  }
+
+  function addCategory() {
+    const c = newCategory.trim()
+    if (c && !form.categories.includes(c)) {
+      setForm((f) => ({ ...f, categories: [...f.categories, c] }))
+    }
+    setNewCategory('')
+  }
+
   async function submit() {
     setSubmitting(true)
     setError(null)
@@ -124,6 +147,7 @@ export default function Setup() {
         timezone: form.timezone,
         admin: { name: form.adminName, email: form.adminEmail },
         sla_targets: form.slaTargets,
+        categories: form.categories,
         resolution_codes: form.resolutionCodes,
       })
       setFakeUser(result.admin.email)
@@ -143,7 +167,8 @@ export default function Setup() {
       return form.adminName.trim().length > 0 && emailOk
     }
     if (step === 4) return Object.values(form.slaTargets).every((v) => Number(v) > 0)
-    if (step === 5) return form.resolutionCodes.length > 0
+    if (step === 5) return form.categories.length > 0
+    if (step === 6) return form.resolutionCodes.length > 0
     return true
   }
 
@@ -350,8 +375,56 @@ export default function Setup() {
             </div>
           )}
 
-          {/* Step 5: Resolution codes */}
+          {/* Step 5: Categories */}
           {step === 5 && (
+            <div>
+              <h2 className="text-sm font-semibold text-surface-800 mb-1">
+                Incident categories
+              </h2>
+              <p className="text-xs text-surface-400 mb-3">
+                Categories used to classify incidents. At least one required.
+              </p>
+              <div className="flex flex-col gap-1 mb-3">
+                {form.categories.map((cat, idx) => (
+                  <div
+                    key={idx}
+                    className="flex items-center justify-between border border-surface-200 bg-surface-50 px-2 py-1"
+                    style={{ borderRadius: 2 }}
+                  >
+                    <span className="text-xs text-surface-700">{cat}</span>
+                    <button
+                      onClick={() => removeCategory(idx)}
+                      className="text-surface-400 hover:text-surface-700 transition-colors ml-2 flex-none"
+                    >
+                      <X size={12} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+              <div className="flex gap-1">
+                <input
+                  type="text"
+                  value={newCategory}
+                  onChange={(e) => setNewCategory(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && addCategory()}
+                  placeholder="Add a category…"
+                  className="flex-1 border border-surface-200 bg-white text-xs px-2 py-1.5 focus:outline-none focus:border-surface-400"
+                  style={{ borderRadius: 2 }}
+                />
+                <button
+                  onClick={addCategory}
+                  disabled={!newCategory.trim()}
+                  className="border border-surface-200 px-2 py-1 text-xs text-surface-600 hover:bg-surface-50 disabled:opacity-40 transition-colors flex items-center"
+                  style={{ borderRadius: 2 }}
+                >
+                  <Plus size={12} />
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Step 6: Resolution codes */}
+          {step === 6 && (
             <div>
               <h2 className="text-sm font-semibold text-surface-800 mb-1">
                 Resolution codes
@@ -398,8 +471,8 @@ export default function Setup() {
             </div>
           )}
 
-          {/* Step 6: Review */}
-          {step === 6 && (
+          {/* Step 7: Review */}
+          {step === 7 && (
             <div>
               <h2 className="text-sm font-semibold text-surface-800 mb-4">
                 Review &amp; complete
@@ -421,6 +494,12 @@ export default function Setup() {
                         </span>
                       </div>
                   ))}
+                </div>
+                <div className="border-t border-surface-100 pt-3 mt-3">
+                  <div className="text-2xs font-semibold text-surface-400 uppercase tracking-widest mb-2">
+                    Categories
+                  </div>
+                  <div className="text-surface-700">{form.categories.join(', ')}</div>
                 </div>
                 <div className="border-t border-surface-100 pt-3 mt-3">
                   <div className="text-2xs font-semibold text-surface-400 uppercase tracking-widest mb-2">
