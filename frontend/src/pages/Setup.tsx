@@ -6,7 +6,16 @@ import client from '@/api/client'
 import { setFakeUser } from '@/api/auth'
 import { ChevronRight, ChevronLeft, Check, X, Plus, Loader2 } from 'lucide-react'
 import { PriorityBadge } from '@/components/PriorityBadge'
+import { useSettings } from '@/contexts/SettingsContext'
 import type { Priority } from '@/types'
+
+const LANGUAGES = [
+  { value: 'en' as const, label: 'English',  native: 'English',    flag: '🇬🇧' },
+  { value: 'fr' as const, label: 'French',   native: 'Français',   flag: '🇫🇷' },
+  { value: 'de' as const, label: 'German',   native: 'Deutsch',    flag: '🇩🇪' },
+  { value: 'es' as const, label: 'Spanish',  native: 'Español',    flag: '🇪🇸' },
+  { value: 'zh' as const, label: 'Mandarin', native: '中文',        flag: '🇨🇳' },
+]
 
 const DEFAULT_CATEGORIES = [
   'Network',
@@ -73,6 +82,7 @@ const TOTAL_STEPS = 7
 export default function Setup() {
   const navigate = useNavigate()
   const qc = useQueryClient()
+  const { language, setLanguage } = useSettings()
   const [step, setStep] = useState(1)
   const [priorities, setPriorities] = useState<Priority[]>([])
   const [newCode, setNewCode] = useState('')
@@ -227,21 +237,53 @@ export default function Setup() {
         </div>
 
         <div className="px-6 pb-4 pt-3" style={{ minHeight: 260 }}>
-          {/* Step 1: Welcome */}
+          {/* Step 1: Welcome + Language */}
           {step === 1 && (
             <div>
-              <h1
-                className="font-semibold text-surface-800 mb-2"
-                style={{ fontSize: 16 }}
-              >
+              <h1 className="font-semibold text-surface-800 mb-1" style={{ fontSize: 16 }}>
                 Welcome to ITSM
               </h1>
-              <p className="text-xs text-surface-500 mb-6" style={{ lineHeight: 1.6 }}>
+              <p className="text-xs text-surface-500 mb-5" style={{ lineHeight: 1.6 }}>
                 Let's get your instance set up. This takes about 3 minutes.
-                <br />
-                You'll configure your company info, create the first admin account, and set SLA
-                targets.
               </p>
+
+              <div className="mb-5">
+                <div className="text-xs font-medium text-surface-600 mb-2">Choose your language</div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 6 }}>
+                  {LANGUAGES.map(lang => {
+                    const active = language === lang.value
+                    return (
+                      <button
+                        key={lang.value}
+                        onClick={() => setLanguage(lang.value)}
+                        style={{
+                          padding: '8px 4px', borderRadius: 3, cursor: 'pointer',
+                          textAlign: 'center', position: 'relative',
+                          border: active ? '2px solid var(--text-primary)' : '1px solid var(--border-color)',
+                          background: active ? 'var(--surface-active)' : 'var(--bg-primary)',
+                          transition: 'border-color 0.15s, background 0.15s',
+                        }}
+                      >
+                        {active && (
+                          <span style={{
+                            position: 'absolute', top: 3, right: 3,
+                            width: 12, height: 12, borderRadius: '50%',
+                            background: 'var(--text-primary)',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          }}>
+                            <Check size={7} style={{ color: 'var(--bg-primary)' }} />
+                          </span>
+                        )}
+                        <div style={{ fontSize: 18, marginBottom: 3, lineHeight: 1 }}>{lang.flag}</div>
+                        <div style={{ fontSize: 9, color: 'var(--text-subtle)', fontWeight: active ? 600 : 400, lineHeight: 1.2 }}>
+                          {lang.native}
+                        </div>
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+
               <button
                 onClick={next}
                 className="bg-surface-800 text-white text-xs font-medium px-4 py-2 hover:bg-surface-700 transition-colors"
