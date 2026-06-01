@@ -1,3 +1,5 @@
+import { motion } from 'framer-motion'
+
 const STATE_STYLES: Record<string, { bg: string; border: string; text: string; label: string }> = {
   new:         { bg: 'rgba(37,99,235,0.10)',  border: 'rgba(37,99,235,0.28)',  text: '#1d4ed8', label: 'New' },
   assigned:    { bg: 'rgba(109,40,217,0.10)', border: 'rgba(109,40,217,0.28)', text: '#7c3aed', label: 'Assigned' },
@@ -11,10 +13,15 @@ interface Props {
   state: string
 }
 
+// Morphing icon — springs between states like iOS play/pause morph
 export function StateBadge({ state }: Props) {
   const s = STATE_STYLES[state] ?? { bg: 'rgba(100,116,139,0.10)', border: 'rgba(100,116,139,0.28)', text: '#475569', label: state }
   return (
-    <span
+    <motion.span
+      key={state}
+      initial={{ scale: 0.72, opacity: 0 }}
+      animate={{ scale: 1, opacity: 1 }}
+      transition={{ type: 'spring', stiffness: 500, damping: 28 }}
       style={{
         display: 'inline-flex',
         alignItems: 'center',
@@ -31,6 +38,6 @@ export function StateBadge({ state }: Props) {
       }}
     >
       {s.label}
-    </span>
+    </motion.span>
   )
 }

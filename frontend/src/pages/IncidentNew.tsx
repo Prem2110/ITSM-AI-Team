@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { ChevronLeft } from 'lucide-react'
+import { motion } from 'framer-motion'
 import { useMe, usePriorities, useCategories, useUsers } from '@/hooks'
 import { createIncident } from '@/api/incidents'
 import { SpinButton } from '@/components/SpinButton'
@@ -26,6 +27,7 @@ export default function IncidentNew() {
   const [source, setSource] = useState('web')
   const [assigneeId, setAssigneeId] = useState('')
   const [requesterId, setRequesterId] = useState('')
+  const [shakeFields, setShakeFields] = useState<string[]>([])
 
   const createMut = useMutation({
     mutationFn: (payload: IncidentCreateRequest) => createIncident(payload),
@@ -37,7 +39,14 @@ export default function IncidentNew() {
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    if (!title.trim() || !category) return
+    const invalid: string[] = []
+    if (!title.trim()) invalid.push('title')
+    if (!category) invalid.push('category')
+    if (invalid.length > 0) {
+      setShakeFields(invalid)
+      setTimeout(() => setShakeFields([]), 600)
+      return
+    }
     createMut.mutate({
       title: title.trim(),
       description: description.trim(),
@@ -77,16 +86,21 @@ export default function IncidentNew() {
             <label className="text-2xs font-semibold text-surface-400 uppercase tracking-wider mb-1 block">
               Title <span className="text-red-400">*</span>
             </label>
-            <input
-              type="text"
-              value={title}
-              onChange={e => setTitle(e.target.value)}
-              placeholder="Brief description of the issue…"
-              className="w-full text-xs border border-surface-200 bg-white px-2 py-1.5 focus:outline-none focus:border-surface-500"
-              style={{ borderRadius: 2 }}
-              autoFocus
-              required
-            />
+            {/* Shake on error — macOS wrong-password */}
+            <motion.div
+              animate={shakeFields.includes('title') ? { x: [0, -8, 8, -6, 6, -3, 3, 0] } : {}}
+              transition={{ duration: 0.45 }}
+            >
+              <input
+                type="text"
+                value={title}
+                onChange={e => setTitle(e.target.value)}
+                placeholder="Brief description of the issue…"
+                className="w-full text-xs border border-surface-200 bg-white px-2 py-1.5 focus:outline-none focus:border-surface-500"
+                style={{ borderRadius: 2, borderColor: shakeFields.includes('title') ? '#ef4444' : undefined }}
+                autoFocus
+              />
+            </motion.div>
           </div>
 
           {/* Description */}
@@ -125,16 +139,20 @@ export default function IncidentNew() {
               <label className="text-2xs font-semibold text-surface-400 uppercase tracking-wider mb-1 block">
                 Category <span className="text-red-400">*</span>
               </label>
-              <select
-                value={category}
-                onChange={e => setCategory(e.target.value)}
-                className="w-full text-xs border border-surface-200 bg-white px-2 py-1.5 focus:outline-none focus:border-surface-500"
-                style={{ borderRadius: 2 }}
-                required
+              <motion.div
+                animate={shakeFields.includes('category') ? { x: [0, -8, 8, -6, 6, -3, 3, 0] } : {}}
+                transition={{ duration: 0.45 }}
               >
-                <option value="">Select category…</option>
-                {categories?.map(c => <option key={c} value={c}>{c}</option>)}
-              </select>
+                <select
+                  value={category}
+                  onChange={e => setCategory(e.target.value)}
+                  className="w-full text-xs border border-surface-200 bg-white px-2 py-1.5 focus:outline-none focus:border-surface-500"
+                  style={{ borderRadius: 2, borderColor: shakeFields.includes('category') ? '#ef4444' : undefined }}
+                >
+                  <option value="">Select category…</option>
+                  {categories?.map(c => <option key={c} value={c}>{c}</option>)}
+                </select>
+              </motion.div>
             </div>
           </div>
 

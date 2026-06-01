@@ -1,6 +1,20 @@
 import { Link, Outlet, useLocation } from 'react-router-dom'
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
+
+function getRouteDepth(pathname: string): number {
+  if (pathname === '/dashboard' || pathname === '/analytics') return 0
+  if (pathname === '/incidents/new') return 2
+  if (/^\/incidents\/[^/]+$/.test(pathname)) return 2
+  if (pathname.startsWith('/incidents')) return 1
+  return 0
+}
+
+const pageVariants = {
+  initial: (dir: number) => ({ opacity: 0, x: dir > 0 ? 48 : dir < 0 ? -48 : 0, y: dir === 0 ? 5 : 0 }),
+  animate: { opacity: 1, x: 0, y: 0 },
+  exit:    (dir: number) => ({ opacity: 0, x: dir > 0 ? -32 : dir < 0 ? 32 : 0, y: dir === 0 ? -4 : 0 }),
+}
 import { Settings } from 'lucide-react'
 import { clearFakeUser, getFakeUser } from '@/api/auth'
 import { useNavigate } from 'react-router-dom'
@@ -76,6 +90,18 @@ export default function Layout() {
   const email = getFakeUser() ?? ''
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [settingsTab, setSettingsTab]   = useState<SettingsTab>('general')
+
+  // Push/Pop direction tracking
+  const prevPathRef = useRef(location.pathname)
+  const dirRef = useRef(0)
+  const navDirection = useMemo(() => {
+    if (location.pathname === prevPathRef.current) return dirRef.current
+    const d = getRouteDepth(location.pathname) > getRouteDepth(prevPathRef.current) ? 1
+            : getRouteDepth(location.pathname) < getRouteDepth(prevPathRef.current) ? -1 : 0
+    prevPathRef.current = location.pathname
+    dirRef.current = d
+    return d
+  }, [location.pathname])
   const { data: setupStatus } = useSetupStatus()
   const { t } = useTranslation()
 
@@ -173,18 +199,25 @@ export default function Layout() {
                 {section.items.map(item => {
                   const active = isActive(item)
                   return (
-                    <Link
+                    // Dock magnification — nav items shift right on hover like macOS Dock
+                    <motion.div
                       key={item.to}
-                      to={item.to}
-                      className={`block px-3 text-xs transition-colors ${
-                        active
-                          ? 'bg-surface-200 text-surface-800 font-medium'
-                          : 'text-surface-700 hover:bg-surface-100'
-                      }`}
-                      style={{ height: 28, lineHeight: '28px', textDecoration: 'none' }}
+                      whileHover={{ x: 3 }}
+                      whileTap={{ scale: 0.97 }}
+                      transition={{ type: 'spring', stiffness: 500, damping: 30 }}
                     >
-                      {item.label}
-                    </Link>
+                      <Link
+                        to={item.to}
+                        className={`block px-3 text-xs transition-colors ${
+                          active
+                            ? 'bg-surface-200 text-surface-800 font-medium'
+                            : 'text-surface-700 hover:bg-surface-100'
+                        }`}
+                        style={{ height: 28, lineHeight: '28px', textDecoration: 'none' }}
+                      >
+                        {item.label}
+                      </Link>
+                    </motion.div>
                   )
                 })}
               </div>
@@ -207,15 +240,17 @@ export default function Layout() {
           </nav>
         </aside>
 
-        {/* Main content — NO padding here, pages handle their own */}
+        {/* Main content — Push/Pop navigation like iOS */}
         <main className="flex-1 overflow-hidden bg-white flex flex-col">
-          <AnimatePresence mode="wait" initial={false}>
+          <AnimatePresence mode="wait" initial={false} custom={navDirection}>
             <motion.div
               key={location.pathname}
-              initial={{ opacity: 0, y: 5 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -4 }}
-              transition={{ duration: 0.15, ease: 'easeOut' }}
+              custom={navDirection}
+              variants={pageVariants}
+              initial="initial"
+              animate="animate"
+              exit="exit"
+              transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
               className="flex-1 flex flex-col overflow-hidden"
             >
               <Outlet />

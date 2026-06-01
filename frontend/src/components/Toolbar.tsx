@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
 import { Plus } from 'lucide-react'
+import { motion } from 'framer-motion'
 
 interface Props {
   count: number
@@ -23,14 +24,16 @@ export function Toolbar({ count, isLoading, onNew, actions }: Props) {
       </div>
       <div className="flex-1" />
       {actions && <div className="inline-flex items-center" style={{ gap: 8 }}>{actions}</div>}
-      <button
+      <motion.button
         onClick={onNew}
+        whileTap={{ scale: 0.94 }}
+        transition={{ type: 'spring', stiffness: 500, damping: 25 }}
         className="inline-flex items-center gap-1 bg-surface-700 text-white hover:bg-surface-800 font-medium transition-colors"
         style={{ height: 28, padding: '0 10px', borderRadius: 4, fontSize: 12 }}
       >
         <Plus size={12} strokeWidth={2.5} />
         New Incident
-      </button>
+      </motion.button>
     </div>
   )
 }

@@ -463,21 +463,31 @@ function DangerZone() {
         ))}
       </div>
 
-      {/* Confirmation modal */}
-      {target && activeAction && (
-        <div
+      {/* Action sheet slide-up — iOS action sheet */}
+      <AnimatePresence>
+        {target && activeAction && (
+        <motion.div
           onClick={closeModal}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.2 }}
           style={{
             position: 'fixed', inset: 0, zIndex: 2000,
             background: 'rgba(15,23,42,0.55)', backdropFilter: 'blur(3px)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24,
+            display: 'flex', alignItems: 'flex-end', justifyContent: 'center',
+            padding: '0 24px 32px',
           }}
         >
-          <div
+          <motion.div
             onClick={e => e.stopPropagation()}
+            initial={{ y: '100%', opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            exit={{ y: '80%', opacity: 0 }}
+            transition={{ type: 'spring', stiffness: 380, damping: 32 }}
             style={{
               background: 'var(--bg-primary)', border: `1px solid ${activeAction.border}`,
-              borderRadius: 6, width: '100%', maxWidth: 420, padding: 24,
+              borderRadius: 12, width: '100%', maxWidth: 420, padding: 24,
               boxShadow: '0 24px 64px rgba(0,0,0,0.22)',
             }}
           >
@@ -540,9 +550,10 @@ function DangerZone() {
                 )}
               </div>
             )}
-          </div>
-        </div>
-      )}
+          </motion.div>
+        </motion.div>
+        )}
+      </AnimatePresence>
     </>
   )
 }
@@ -1096,11 +1107,21 @@ export function SettingsModal({ open, defaultTab = 'general', onClose }: Props) 
             ))}
           </aside>
 
-          {/* Content */}
-          <div style={{ flex: 1, overflowY: 'auto', padding: '20px 24px' }}>
-            {activeTab === 'general'    && <GeneralTab />}
-            {activeTab === 'appearance' && <AppearanceTab />}
-            {activeTab === 'ai'         && <AITab />}
+          {/* Cross-dissolve tabs — iOS tab switching */}
+          <div style={{ flex: 1, overflowY: 'auto', padding: '20px 24px', position: 'relative' }}>
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={activeTab}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.12 }}
+              >
+                {activeTab === 'general'    && <GeneralTab />}
+                {activeTab === 'appearance' && <AppearanceTab />}
+                {activeTab === 'ai'         && <AITab />}
+              </motion.div>
+            </AnimatePresence>
           </div>
         </div>
       </motion.div>

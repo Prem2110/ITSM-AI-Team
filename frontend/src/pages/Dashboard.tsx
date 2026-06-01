@@ -78,9 +78,10 @@ interface StatCardProps {
   accent?: string
   loading: boolean
   tooltip?: string
+  bounce?: boolean
 }
 
-function StatCard({ label, value, href, accent = '#6366f1', loading, tooltip }: StatCardProps) {
+function StatCard({ label, value, href, accent = '#6366f1', loading, tooltip, bounce }: StatCardProps) {
   const navigate = useNavigate()
   const count = useCountUp(loading ? 0 : (value ?? 0))
 
@@ -93,8 +94,10 @@ function StatCard({ label, value, href, accent = '#6366f1', loading, tooltip }: 
     )
   }
   return (
-    <button
+    <motion.button
       onClick={() => navigate(href)}
+      whileTap={{ scale: 0.96 }}
+      transition={{ type: 'spring', stiffness: 500, damping: 25 }}
       className="stat-card bg-white border border-surface-200 px-4 pt-4 pb-5 text-left w-full"
       style={{ borderRadius: 4 }}
       title={tooltip}
@@ -102,10 +105,16 @@ function StatCard({ label, value, href, accent = '#6366f1', loading, tooltip }: 
       <div className="text-2xs font-semibold text-surface-400 uppercase tracking-wider mb-1.5">
         {label}
       </div>
-      <div className="text-3xl font-bold leading-none tabular-nums" style={{ color: accent }}>
+      {/* Notification bounce — iOS app icon badge bounce */}
+      <motion.div
+        className="text-3xl font-bold leading-none tabular-nums"
+        style={{ color: accent }}
+        animate={bounce && (value ?? 0) > 0 ? { scale: [1, 1.18, 0.9, 1.06, 0.98, 1] } : {}}
+        transition={{ duration: 0.55, delay: 0.7 }}
+      >
         {count}
-      </div>
-    </button>
+      </motion.div>
+    </motion.button>
   )
 }
 
@@ -244,11 +253,14 @@ function SlaWidget() {
             <div className="text-xs text-surface-500">
               {t('dashboard.resolvedOnTime', { met: data.met, total: data.total })}
             </div>
-            {/* Progress bar */}
+            {/* Health ring fill — Apple Watch style animated fill */}
             <div className="w-full mt-4 bg-surface-100 rounded" style={{ height: 6, borderRadius: 3 }}>
-              <div
-                className="h-full rounded transition-all"
-                style={{ width: `${data.compliance_pct}%`, background: color, borderRadius: 3 }}
+              <motion.div
+                className="h-full rounded"
+                initial={{ width: 0 }}
+                animate={{ width: `${data.compliance_pct}%` }}
+                transition={{ duration: 1.1, ease: [0.22, 1, 0.36, 1], delay: 0.2 }}
+                style={{ background: color, borderRadius: 3 }}
               />
             </div>
           </>
@@ -461,7 +473,7 @@ export default function Dashboard() {
             <motion.div variants={statItem}><StatCard label={t('dashboard.myOpen')}       value={summary?.my_open}    href="/incidents?assignee_id=me&state=new,assigned,in_progress,on_hold" accent="#6366f1" loading={summaryLoad} tooltip="Incidents assigned to you that are currently open." /></motion.div>
             <motion.div variants={statItem}><StatCard label={t('dashboard.allOpen')}      value={summary?.all_open}   href="/incidents?state=new,assigned,in_progress,on_hold"                 accent="#0ea5e9" loading={summaryLoad} tooltip="All incidents that are currently open across the system." /></motion.div>
             <motion.div variants={statItem}><StatCard label={t('dashboard.unassigned')}   value={summary?.unassigned} href="/incidents?assignee_id=unassigned"                                  accent="#f59e0b" loading={summaryLoad} tooltip="Open incidents that do not have an assignee yet." /></motion.div>
-            <motion.div variants={statItem}><StatCard label={t('dashboard.breachedSlas')} value={summary?.breached}   href="/incidents?sla_breached=true"                                       accent="#ef4444" loading={summaryLoad} tooltip="Open incidents that have crossed SLA due time." /></motion.div>
+            <motion.div variants={statItem}><StatCard label={t('dashboard.breachedSlas')} value={summary?.breached}   href="/incidents?sla_breached=true"                                       accent="#ef4444" loading={summaryLoad} tooltip="Open incidents that have crossed SLA due time." bounce /></motion.div>
           </motion.div>
 
           {/* Row 2 — Trend + SLA */}

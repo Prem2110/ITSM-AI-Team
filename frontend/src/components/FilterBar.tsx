@@ -1,5 +1,6 @@
 import { useRef, useState, useEffect, RefObject } from 'react'
 import { Plus } from 'lucide-react'
+import { motion } from 'framer-motion'
 import { FilterPill } from './FilterPill'
 import type { IncidentFilterState } from '@/hooks/useIncidentFilters'
 import { useCategories } from '@/hooks/useConfig'
@@ -33,6 +34,7 @@ export function FilterBar({ filterState, searchInputRef }: Props) {
   const { data: agents } = useUsers('agent')
   const [addOpen, setAddOpen] = useState(false)
   const [addField, setAddField] = useState<string | null>(null)
+  const [searchFocused, setSearchFocused] = useState(false)
   const addRef = useRef<HTMLDivElement>(null)
 
   // Close on outside click
@@ -155,15 +157,19 @@ export function FilterBar({ filterState, searchInputRef }: Props) {
         )}
       </div>
 
-      {/* Search */}
-      <input
+      {/* Spotlight expand — search bar widens on focus like macOS Spotlight */}
+      <motion.input
         ref={searchInputRef}
         type="text"
         placeholder="Search title… (/)"
         value={localSearch}
         onChange={e => setLocalSearch(e.target.value)}
+        onFocus={() => setSearchFocused(true)}
+        onBlur={() => setSearchFocused(false)}
+        animate={{ width: searchFocused ? 260 : 180 }}
+        transition={{ type: 'spring', stiffness: 380, damping: 30 }}
         className="border border-surface-200 bg-white text-xs px-2 text-surface-800 placeholder-surface-400 focus:outline-none focus:border-surface-400"
-        style={{ height: 24, width: 180, borderRadius: 2 }}
+        style={{ height: 24, borderRadius: 2 }}
       />
     </div>
   )
