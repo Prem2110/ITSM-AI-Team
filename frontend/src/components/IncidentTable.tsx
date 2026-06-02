@@ -202,7 +202,25 @@ export function IncidentTable({ items, priorities, sort, order, onSort, isLoadin
 
                 {/* Assignee */}
                 <td className="px-2 truncate" style={{ color: inc.assignee_name ? 'var(--text-secondary)' : 'var(--text-subtle)', fontSize: 12 }}>
-                  {inc.assignee_name ?? '—'}
+                  {inc.assignee_name ? (
+                    inc.assignee_name
+                  ) : (
+                    <div className="flex items-center gap-1.5 no-theme-transition">
+                      {(inc.priority === 0 || inc.priority === 1) ? (
+                        <span className="relative flex h-2 w-2 flex-none">
+                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+                          <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-500"></span>
+                        </span>
+                      ) : (
+                        <span className="text-surface-400">—</span>
+                      )}
+                      {(inc.priority === 0 || inc.priority === 1) && (
+                        <span className="text-[11px] font-medium text-amber-600 dark:text-amber-400 leading-none">
+                          Unassigned
+                        </span>
+                      )}
+                    </div>
+                  )}
                 </td>
 
                 {/* Updated */}

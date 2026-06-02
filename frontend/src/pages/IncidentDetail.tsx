@@ -1,7 +1,11 @@
 import { useState, useMemo } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { ChevronLeft, AlertTriangle, ChevronDown, Loader2, Brain } from 'lucide-react'
+import { 
+  ChevronLeft, AlertTriangle, ChevronDown, Loader2, Brain,
+  MessageSquare, Lock, ArrowRight, UserPlus, FileUp, FileText 
+} from 'lucide-react'
+import { motion, AnimatePresence } from 'framer-motion'
 import { Skeleton } from '@/components/Skeleton'
 import { useIncident, useMe, useUsers, usePriorities, useCategories, useStates, useResolutionCodes } from '@/hooks'
 import { useAIStatus, useSimilarIncidents, useSummarizeIncident, useDraftReply, useDraftResolution } from '@/hooks/useAI'
@@ -33,7 +37,7 @@ function SlaValue({ sla_resolution_due, sla_breached, state, created_at }: {
   if (!due) return <span className="text-xs text-surface-400">—</span>
   if (isDone) {
     return (
-      <span className="text-xs text-surface-500">
+      <span className="text-xs text-surface-500 font-medium">
         {due.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}
       </span>
     )
@@ -41,7 +45,9 @@ function SlaValue({ sla_resolution_due, sla_breached, state, created_at }: {
   const now = Date.now()
   const msRemaining = due.getTime() - now
   const totalMs = due.getTime() - new Date(created_at).getTime()
-  const pct = totalMs > 0 ? (msRemaining / totalMs) * 100 : 0
+  const elapsedMs = totalMs - msRemaining
+  const elapsedPct = totalMs > 0 ? (elapsedMs / totalMs) * 100 : 0
+  const pctRemaining = 100 - elapsedPct
 
   function fmt(ms: number) {
     const m = Math.floor(Math.abs(ms) / 60000)
@@ -52,11 +58,69 @@ function SlaValue({ sla_resolution_due, sla_breached, state, created_at }: {
     return `${m}m`
   }
 
-  if (msRemaining <= 0 || sla_breached) {
-    return <span className="text-xs font-medium" style={{ color: '#b91c1c' }}>Breached {fmt(msRemaining)} ago</span>
+  const isBreached = msRemaining <= 0 || sla_breached
+  
+  const radius = 12
+  const stroke = 2.5
+  const normalizedRadius = radius - stroke * 2
+  const circumference = normalizedRadius * 2 * Math.PI
+  const strokeDashoffset = circumference - (Math.max(0, Math.min(100, isBreached ? 100 : pctRemaining)) / 100) * circumference
+
+  let color = '#10b981' // Green
+  let textClass = 'text-emerald-600 dark:text-emerald-400 font-semibold'
+  let ringClass = ''
+
+  if (isBreached) {
+    color = '#ef4444' // Red
+    textClass = 'text-rose-600 dark:text-rose-400 font-bold'
+    ringClass = 'pulse-breached'
+  } else if (pctRemaining < 25) {
+    color = '#f59e0b' // Amber
+    textClass = 'text-amber-600 dark:text-amber-400 font-semibold'
   }
-  const color = pct > 25 ? '#15803d' : '#a16207'
-  return <span className="text-xs font-medium" style={{ color }}>Resolve in {fmt(msRemaining)}</span>
+
+  return (
+    <div className="flex items-center gap-2.5 mt-1 no-theme-transition">
+      <div className={`relative flex-none w-8 h-8 flex items-center justify-center ${ringClass}`}>
+        <svg height={32} width={32} className="transform -rotate-90">
+          <circle
+            stroke="#cbd5e1"
+            className="dark:stroke-slate-700"
+            fill="transparent"
+            strokeWidth={stroke}
+            r={normalizedRadius}
+            cx={16}
+            cy={16}
+          />
+          <motion.circle
+            stroke={color}
+            fill="transparent"
+            strokeWidth={stroke}
+            strokeDasharray={circumference + ' ' + circumference}
+            style={{ strokeDashoffset }}
+            initial={{ strokeDashoffset: circumference }}
+            animate={{ strokeDashoffset }}
+            transition={{ duration: 1.2, ease: 'easeOut' }}
+            strokeLinecap="round"
+            r={normalizedRadius}
+            cx={16}
+            cy={16}
+          />
+        </svg>
+        <span className="absolute text-[8px] font-extrabold" style={{ color }}>
+          {isBreached ? '!' : `${Math.round(pctRemaining)}%`}
+        </span>
+      </div>
+      <div className="flex flex-col">
+        <span className={`text-xs ${textClass}`}>
+          {isBreached ? `Breached ${fmt(msRemaining)} ago` : `Resolve in ${fmt(msRemaining)}`}
+        </span>
+        <span className="text-[10px] text-surface-400 leading-tight">
+          Due {due.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+        </span>
+      </div>
+    </div>
+  )
 }
 
 function EventItem({ event, userMap }: { event: IncidentEvent; userMap: Record<string, string> }) {
@@ -64,16 +128,30 @@ function EventItem({ event, userMap }: { event: IncidentEvent; userMap: Record<s
   const when = relativeTime(event.created_at)
   const meta = (event.event_metadata ?? {}) as Record<string, string>
 
+  let iconNode: React.ReactNode = null
+  let bodyNode: React.ReactNode = null
+
   if (event.event_type === 'comment' || event.event_type === 'work_note') {
     const isWork = event.event_type === 'work_note'
-    return (
+    iconNode = isWork ? (
+      <div className="w-6 h-6 rounded-full bg-amber-100 dark:bg-amber-950/40 text-amber-600 border border-amber-200 dark:border-amber-900/60 flex items-center justify-center">
+        <Lock size={11} />
+      </div>
+    ) : (
+      <div className="w-6 h-6 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 border border-slate-200 dark:border-slate-700 flex items-center justify-center">
+        <MessageSquare size={11} />
+      </div>
+    )
+
+    bodyNode = (
       <div
         className="p-3"
         style={{
-          background: isWork ? 'rgba(245,158,11,0.05)' : 'var(--bg-secondary)',
+          background: isWork ? 'rgba(245,158,11,0.04)' : 'var(--bg-secondary)',
           border: `1px solid ${isWork ? 'rgba(245,158,11,0.22)' : 'var(--border-color)'}`,
           borderLeft: `3px solid ${isWork ? '#f59e0b' : '#94a3b8'}`,
-          borderRadius: 2,
+          borderRadius: 4,
+          boxShadow: isWork ? '0 2px 8px rgba(245,158,11,0.04)' : 'none',
         }}
       >
         <div className="flex items-center gap-2 mb-1.5">
@@ -81,7 +159,7 @@ function EventItem({ event, userMap }: { event: IncidentEvent; userMap: Record<s
           {isWork && (
             <span
               style={{
-                fontSize: 10, fontWeight: 700, letterSpacing: '0.04em',
+                fontSize: 9, fontWeight: 700, letterSpacing: '0.04em',
                 padding: '1px 4px', borderRadius: '3px',
                 background: 'rgba(245,158,11,0.12)',
                 border: '1px solid rgba(245,158,11,0.28)',
@@ -96,15 +174,19 @@ function EventItem({ event, userMap }: { event: IncidentEvent; userMap: Record<s
         <p className="text-xs text-surface-700 whitespace-pre-wrap leading-relaxed">{event.body}</p>
       </div>
     )
-  }
-
-  if (event.event_type === 'state_change') {
+  } else if (event.event_type === 'state_change') {
     const from = meta.from_state ?? '?'
     const to = meta.to_state ?? '?'
     function toTitle(s: string) { return s.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()) }
-    return (
-      <div className="flex items-center gap-2 text-2xs text-surface-500" style={{ minHeight: 28 }}>
-        <span className="w-1.5 h-1.5 rounded-full bg-surface-300 flex-none" />
+    
+    iconNode = (
+      <div className="w-6 h-6 rounded-full bg-violet-100 dark:bg-violet-950/40 text-violet-600 border border-violet-200 dark:border-violet-900/60 flex items-center justify-center">
+        <ArrowRight size={11} />
+      </div>
+    )
+
+    bodyNode = (
+      <div className="flex items-center gap-2 text-2xs text-surface-500 py-1" style={{ minHeight: 24 }}>
         <span>
           <span className="font-semibold text-surface-600">{actor}</span>
           {' '}changed state{' '}
@@ -116,45 +198,72 @@ function EventItem({ event, userMap }: { event: IncidentEvent; userMap: Record<s
         <span className="ml-auto whitespace-nowrap">{when}</span>
       </div>
     )
-  }
+  } else if (event.event_type === 'field_update') {
+    const isCreated = meta.action === 'created'
+    iconNode = isCreated ? (
+      <div className="w-6 h-6 rounded-full bg-emerald-100 dark:bg-emerald-950/40 text-emerald-600 border border-emerald-200 dark:border-emerald-900/60 flex items-center justify-center">
+        <UserPlus size={11} />
+      </div>
+    ) : (
+      <div className="w-6 h-6 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-400 border border-slate-200 dark:border-slate-700 flex items-center justify-center">
+        <FileText size={11} />
+      </div>
+    )
 
-  if (event.event_type === 'field_update') {
-    if (meta.action === 'created') {
-      return (
-        <div className="flex items-center gap-2 text-2xs text-surface-500" style={{ minHeight: 28 }}>
-          <span className="w-1.5 h-1.5 rounded-full bg-surface-300 flex-none" />
+    if (isCreated) {
+      bodyNode = (
+        <div className="flex items-center gap-2 text-2xs text-surface-500 py-1" style={{ minHeight: 24 }}>
           <span><span className="font-semibold text-surface-600">{actor}</span> created this incident</span>
           <span className="ml-auto whitespace-nowrap">{when}</span>
         </div>
       )
+    } else {
+      bodyNode = (
+        <div className="flex items-start gap-2 text-2xs text-surface-500 py-1" style={{ minHeight: 24 }}>
+          <span>
+            <span className="font-semibold text-surface-600">{actor}</span>
+            {' '}updated <span className="font-semibold">{meta.field}</span>
+            {meta.old && meta.new ? (
+              <span className="text-surface-400"> ({meta.old} → {meta.new})</span>
+            ) : null}
+          </span>
+          <span className="ml-auto whitespace-nowrap">{when}</span>
+        </div>
+      )
     }
-    return (
-      <div className="flex items-start gap-2 text-2xs text-surface-500" style={{ minHeight: 28 }}>
-        <span className="w-1.5 h-1.5 rounded-full bg-surface-300 flex-none mt-1.5" />
-        <span>
-          <span className="font-semibold text-surface-600">{actor}</span>
-          {' '}updated <span className="font-semibold">{meta.field}</span>
-          {meta.old && meta.new ? (
-            <span className="text-surface-400"> ({meta.old} → {meta.new})</span>
-          ) : null}
-        </span>
-        <span className="ml-auto whitespace-nowrap">{when}</span>
+  } else if (event.event_type === 'attachment_added' || event.event_type === 'attachment_deleted') {
+    const verb = event.event_type === 'attachment_added' ? 'added' : 'removed'
+    iconNode = (
+      <div className="w-6 h-6 rounded-full bg-blue-100 dark:bg-blue-950/40 text-blue-600 border border-blue-200 dark:border-blue-900/60 flex items-center justify-center">
+        <FileUp size={11} />
       </div>
     )
-  }
 
-  if (event.event_type === 'attachment_added' || event.event_type === 'attachment_deleted') {
-    const verb = event.event_type === 'attachment_added' ? 'added' : 'removed'
-    return (
-      <div className="flex items-center gap-2 text-2xs text-surface-500" style={{ minHeight: 28 }}>
-        <span className="w-1.5 h-1.5 rounded-full bg-surface-300 flex-none" />
+    bodyNode = (
+      <div className="flex items-center gap-2 text-2xs text-surface-500 py-1" style={{ minHeight: 24 }}>
         <span><span className="font-semibold text-surface-600">{actor}</span> {verb} an attachment</span>
         <span className="ml-auto whitespace-nowrap">{when}</span>
       </div>
     )
   }
 
-  return null
+  if (!bodyNode) return null
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 12 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.28, ease: 'easeOut' }}
+      className="relative pl-9 pb-1"
+    >
+      <div className="absolute left-1.5 top-0.5 z-10">
+        {iconNode}
+      </div>
+      <div>
+        {bodyNode}
+      </div>
+    </motion.div>
+  )
 }
 
 export default function IncidentDetail() {
@@ -573,121 +682,7 @@ export default function IncidentDetail() {
             )}
           </div>
 
-          {/* AI Help Panel */}
-          {aiPanelOpen && aiEnabled && (
-            <div
-              className="border-b border-indigo-100"
-              style={{
-                paddingLeft: 20, paddingRight: 20, paddingTop: 12, paddingBottom: 12,
-                background: 'rgba(99,102,241,0.04)',
-                borderLeft: '3px solid rgba(99,102,241,0.35)',
-              }}
-            >
-              <div className="flex items-center gap-2 mb-3">
-                <Brain size={12} className="flex-none" style={{ color: '#6366f1' }} />
-                <span className="text-2xs font-semibold uppercase tracking-wider" style={{ color: '#4f46e5' }}>
-                  AI Help
-                </span>
-              </div>
 
-              {/* Thread summary */}
-              <div className="mb-3">
-                <div className="flex items-center gap-2 mb-1.5">
-                  <span className="text-2xs font-semibold text-surface-500 uppercase tracking-wider">Thread Summary</span>
-                  {!summarizeMut.data && !summarizeMut.isPending && (
-                    <button
-                      onClick={() => summarizeMut.mutate(id!)}
-                      className="text-2xs text-indigo-600 hover:text-indigo-800 border border-indigo-200 px-2 py-0.5 hover:bg-indigo-50 transition-colors"
-                      style={{ borderRadius: 2 }}
-                    >
-                      Summarize
-                    </button>
-                  )}
-                  {summarizeMut.data && (
-                    <button onClick={() => summarizeMut.reset()} className="text-2xs text-surface-400 hover:text-surface-600">
-                      Clear
-                    </button>
-                  )}
-                </div>
-                {summarizeMut.isPending && (
-                  <div className="flex items-center gap-2 text-xs text-surface-500">
-                    <Loader2 size={12} className="animate-spin" style={{ color: '#818cf8' }} />
-                    Summarizing…
-                  </div>
-                )}
-                {summarizeMut.isError && <div className="text-xs text-red-500">Failed to summarize.</div>}
-                {summarizeMut.data?.summary && (
-                  <p
-                    className="text-xs text-surface-700 leading-relaxed"
-                    style={{ background: 'rgba(255,255,255,0.7)', border: '1px solid rgba(99,102,241,0.15)', borderRadius: 2, padding: '6px 8px' }}
-                  >
-                    {summarizeMut.data.summary}
-                  </p>
-                )}
-                {!summarizeMut.data && !summarizeMut.isPending && !summarizeMut.isError && (
-                  <p className="text-xs text-surface-400 italic">Click Summarize to condense the thread into a brief.</p>
-                )}
-              </div>
-
-              <div style={{ borderTop: '1px solid rgba(99,102,241,0.12)', marginBottom: 10 }} />
-
-              {/* Similar incidents */}
-              <div>
-                <span className="text-2xs font-semibold text-surface-500 uppercase tracking-wider">Similar Incidents</span>
-                <div className="mt-1.5">
-                  {similarLoading ? (
-                    <div className="flex items-center gap-2 text-xs text-surface-500">
-                      <Loader2 size={13} className="animate-spin" style={{ color: '#818cf8' }} />
-                      Analyzing similar incidents…
-                    </div>
-                  ) : similarError ? (
-                    <div className="text-xs text-red-500">Failed to load AI suggestions.</div>
-                  ) : !similarIncs?.length ? (
-                    <div className="text-xs text-surface-400 italic">No similar resolved incidents found.</div>
-                  ) : (
-                    <div className="flex flex-col gap-2">
-                      {similarIncs.map(sim => (
-                        <div
-                          key={sim.id}
-                          style={{
-                            background: 'rgba(255,255,255,0.75)',
-                            border: '1px solid rgba(99,102,241,0.18)',
-                            borderRadius: 2,
-                            padding: '8px 10px',
-                          }}
-                        >
-                          <div className="flex items-start gap-2 mb-1">
-                            <span
-                              className="font-mono text-2xs flex-none"
-                              style={{
-                                padding: '1px 5px', borderRadius: 3,
-                                background: 'rgba(99,102,241,0.1)',
-                                border: '1px solid rgba(99,102,241,0.22)',
-                                color: '#4f46e5',
-                              }}
-                            >
-                              {sim.number}
-                            </span>
-                            <span className="text-xs font-medium text-surface-800 leading-tight">{sim.title}</span>
-                          </div>
-                          <p className="text-2xs text-surface-500 leading-relaxed mb-1">{sim.similarity_reason}</p>
-                          {sim.resolution_summary && (
-                            <div
-                              className="text-2xs text-surface-700 leading-relaxed"
-                              style={{ borderTop: '1px solid rgba(99,102,241,0.12)', paddingTop: 5, marginTop: 4 }}
-                            >
-                              <span className="font-semibold" style={{ color: '#4f46e5' }}>Resolution: </span>
-                              {sim.resolution_summary}
-                            </div>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-          )}
 
           {/* Activity */}
           <div className="flex-1" style={{ paddingLeft: 20, paddingRight: 20, paddingTop: 12, paddingBottom: 8 }}>
@@ -695,7 +690,7 @@ export default function IncidentDetail() {
             {incident.events.length === 0 ? (
               <div className="text-xs text-surface-400 italic">No activity yet.</div>
             ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+              <div className="timeline-thread pl-1" style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                 {incident.events.map(event => (
                   <EventItem key={event.id} event={event} userMap={userMap} />
                 ))}
@@ -887,6 +882,126 @@ export default function IncidentDetail() {
           )}
         </div>
       </div>
+
+      {/* Sliding AI Panel Drawer */}
+      <AnimatePresence>
+        {aiPanelOpen && aiEnabled && (
+          <>
+            {/* Backdrop Blur overlay */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 0.35 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setAiPanelOpen(false)}
+              className="fixed inset-0 bg-slate-900 z-40 cursor-pointer"
+            />
+            {/* Drawer */}
+            <motion.div
+              initial={{ x: '100%' }}
+              animate={{ x: 0 }}
+              exit={{ x: '100%' }}
+              transition={{ type: 'spring', damping: 26, stiffness: 220 }}
+              className="fixed top-0 right-0 h-full w-[440px] bg-white dark:bg-slate-950 border-l border-indigo-200 dark:border-indigo-900/60 shadow-2xl z-50 flex flex-col no-theme-transition backdrop-glass"
+            >
+              {/* Drawer Header */}
+              <div className="flex-none flex items-center justify-between px-4 border-b border-indigo-100 dark:border-indigo-950/50" style={{ height: 48 }}>
+                <div className="flex items-center gap-2">
+                  <Brain size={14} className="text-indigo-600 dark:text-indigo-400 animate-pulse" />
+                  <span className="text-xs font-semibold text-indigo-700 dark:text-indigo-400 uppercase tracking-wider">AI Incident Co-Pilot</span>
+                </div>
+                <button
+                  onClick={() => setAiPanelOpen(false)}
+                  className="text-surface-400 hover:text-surface-600 text-xs px-2 py-1 rounded hover:bg-surface-100 dark:hover:bg-slate-800 transition-colors"
+                >
+                  Close
+                </button>
+              </div>
+
+              {/* Drawer Content */}
+              <div className="flex-1 overflow-y-auto px-4 py-4 flex flex-col gap-5 bg-transparent">
+                {/* AI Summary Section */}
+                <div className="bg-slate-50/50 dark:bg-slate-900/40 p-3 rounded-lg border border-slate-200/60 dark:border-slate-800/80">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-2xs font-bold text-surface-500 uppercase tracking-wider">Thread Summary</span>
+                    {!summarizeMut.data && !summarizeMut.isPending && (
+                      <button
+                        onClick={() => summarizeMut.mutate(id!)}
+                        className="text-2xs text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 font-semibold border border-indigo-200 dark:border-indigo-800/80 px-2.5 py-0.5 rounded bg-white dark:bg-slate-950 hover:bg-indigo-50/30 transition-all shadow-sm"
+                      >
+                        Summarize Thread
+                      </button>
+                    )}
+                    {summarizeMut.data && (
+                      <button onClick={() => summarizeMut.reset()} className="text-2xs text-surface-400 hover:text-surface-600 font-medium">
+                        Clear
+                      </button>
+                    )}
+                  </div>
+
+                  {summarizeMut.isPending && (
+                    <div className="flex items-center gap-2 text-xs text-surface-500 py-2">
+                      <Loader2 size={12} className="animate-spin text-indigo-500" />
+                      Synthesizing intelligence summary…
+                    </div>
+                  )}
+
+                  {summarizeMut.isError && <div className="text-xs text-red-500 py-1">Failed to generate summary.</div>}
+
+                  {summarizeMut.data?.summary && (
+                    <div className="text-xs text-surface-700 dark:text-surface-300 leading-relaxed bg-white/70 dark:bg-slate-950/60 p-2.5 rounded border border-indigo-100/50 dark:border-indigo-900/30 shadow-sm">
+                      {summarizeMut.data.summary}
+                    </div>
+                  )}
+
+                  {!summarizeMut.data && !summarizeMut.isPending && !summarizeMut.isError && (
+                    <p className="text-xs text-surface-400 italic">Generate a quick executive summary of this incident's discussion history.</p>
+                  )}
+                </div>
+
+                {/* Similar Incidents Section */}
+                <div className="flex-1 flex flex-col min-h-0">
+                  <span className="text-2xs font-bold text-surface-500 uppercase tracking-wider mb-2 block">Similar Solved Incidents</span>
+                  <div className="flex-1 overflow-y-auto pr-1">
+                    {similarLoading ? (
+                      <div className="flex items-center gap-2 text-xs text-surface-500 py-2">
+                        <Loader2 size={13} className="animate-spin text-indigo-500" />
+                        Analyzing semantic cluster mapping…
+                      </div>
+                    ) : similarError ? (
+                      <div className="text-xs text-red-500">Failed to analyze incident relationships.</div>
+                    ) : !similarIncs?.length ? (
+                      <div className="text-xs text-surface-400 italic py-2">No semantically similar resolved tickets found in records.</div>
+                    ) : (
+                      <div className="flex flex-col gap-3">
+                        {similarIncs.map(sim => (
+                          <div
+                            key={sim.id}
+                            className="bg-white/60 dark:bg-slate-900/30 border border-slate-200/80 dark:border-slate-800/80 rounded-lg p-3 hover:border-indigo-300 dark:hover:border-indigo-800 transition-all shadow-sm"
+                          >
+                            <div className="flex items-start gap-2 mb-1.5 justify-between">
+                              <span className="font-mono text-2xs bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-100 dark:border-indigo-900/60 px-2 py-0.5 rounded text-indigo-600 dark:text-indigo-400 font-semibold">
+                                {sim.number}
+                              </span>
+                            </div>
+                            <span className="text-xs font-semibold text-surface-800 dark:text-surface-200 leading-tight block mb-1">{sim.title}</span>
+                            <p className="text-2xs text-surface-500 leading-relaxed mb-2 bg-slate-50/50 dark:bg-slate-950/30 p-1.5 rounded">{sim.similarity_reason}</p>
+                            {sim.resolution_summary && (
+                              <div className="text-2xs text-surface-700 dark:text-surface-300 leading-relaxed border-t border-slate-100 dark:border-slate-800/80 pt-2 mt-2">
+                                <span className="font-bold text-indigo-600 dark:text-indigo-400">Proven Resolution: </span>
+                                {sim.resolution_summary}
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
     </div>
   )
 }

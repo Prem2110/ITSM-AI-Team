@@ -2,8 +2,9 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion, type Variants } from 'framer-motion'
 import {
-  LineChart, Line, BarChart, Bar, XAxis, YAxis,
+  BarChart, Bar, XAxis, YAxis,
   Tooltip, ResponsiveContainer, CartesianGrid, Cell,
+  AreaChart, Area,
 } from 'recharts'
 import { useTranslation } from 'react-i18next'
 import { useDashboard, useDashboardTrends, useDashboardSlaCompliance, useDashboardTopCategories, useDashboardOpsKpis } from '@/hooks/useDashboard'
@@ -93,12 +94,19 @@ function StatCard({ label, value, href, accent = '#6366f1', loading, tooltip, bo
       </div>
     )
   }
+
+  const glowClass = 
+    accent === '#ef4444' ? 'glow-card-rose' :
+    accent === '#f59e0b' ? 'glow-card-amber' :
+    accent === '#22c55e' ? 'glow-card-emerald' :
+    'glow-card-indigo';
+
   return (
     <motion.button
       onClick={() => navigate(href)}
       whileTap={{ scale: 0.96 }}
       transition={{ type: 'spring', stiffness: 500, damping: 25 }}
-      className="stat-card bg-white border border-surface-200 px-4 pt-4 pb-5 text-left w-full"
+      className={`stat-card bg-white border border-surface-200 px-4 pt-4 pb-5 text-left w-full ${glowClass}`}
       style={{ borderRadius: 4 }}
       title={tooltip}
     >
@@ -168,8 +176,18 @@ function TrendChart() {
   return (
     <Panel title={t('dashboard.newVsResolved')}>
       <ResponsiveContainer width="100%" height={180}>
-        <LineChart data={chartData} margin={{ top: 4, right: 8, left: -24, bottom: 0 }}>
-          <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+        <AreaChart data={chartData} margin={{ top: 4, right: 8, left: -24, bottom: 0 }} className="no-theme-transition">
+          <defs>
+            <linearGradient id="gradientNew" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="5%" stopColor="#6366f1" stopOpacity={0.16}/>
+              <stop offset="95%" stopColor="#6366f1" stopOpacity={0}/>
+            </linearGradient>
+            <linearGradient id="gradientResolved" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="5%" stopColor="#22c55e" stopOpacity={0.16}/>
+              <stop offset="95%" stopColor="#22c55e" stopOpacity={0}/>
+            </linearGradient>
+          </defs>
+          <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" vertical={false} />
           <XAxis
             dataKey="date"
             tick={{ fontSize: 10, fill: '#94a3b8' }}
@@ -184,26 +202,29 @@ function TrendChart() {
             allowDecimals={false}
           />
           <Tooltip
-            contentStyle={{ fontSize: 11, borderRadius: 3, border: '1px solid #e2e8f0', boxShadow: '0 2px 6px rgba(0,0,0,.08)' }}
-            labelStyle={{ fontSize: 11, fontWeight: 600, color: '#334155' }}
+            contentStyle={{ fontSize: 11, borderRadius: 6, border: '1px solid var(--border-color)', background: 'var(--bg-primary)', boxShadow: '0 4px 12px rgba(0,0,0,.08)' }}
+            labelStyle={{ fontSize: 11, fontWeight: 600, color: 'var(--text-primary)' }}
+            itemStyle={{ padding: '2px 0' }}
           />
-          <Line
+          <Area
             type="monotone"
             dataKey={t('dashboard.new')}
             stroke="#6366f1"
             strokeWidth={2}
+            fill="url(#gradientNew)"
             dot={false}
-            activeDot={{ r: 3 }}
+            activeDot={{ r: 4, strokeWidth: 0, fill: '#6366f1' }}
           />
-          <Line
+          <Area
             type="monotone"
             dataKey={t('dashboard.resolved')}
             stroke="#22c55e"
             strokeWidth={2}
+            fill="url(#gradientResolved)"
             dot={false}
-            activeDot={{ r: 3 }}
+            activeDot={{ r: 4, strokeWidth: 0, fill: '#22c55e' }}
           />
-        </LineChart>
+        </AreaChart>
       </ResponsiveContainer>
       <div className="flex items-center gap-4 mt-2">
         <span className="flex items-center gap-1.5 text-2xs text-surface-500">

@@ -15,7 +15,7 @@ const pageVariants = {
   animate: { opacity: 1, x: 0, y: 0 },
   exit:    (dir: number) => ({ opacity: 0, x: dir > 0 ? -32 : dir < 0 ? 32 : 0, y: dir === 0 ? -4 : 0 }),
 }
-import { Settings } from 'lucide-react'
+import { Settings, Search } from 'lucide-react'
 import { clearFakeUser, getFakeUser } from '@/api/auth'
 import { useNavigate } from 'react-router-dom'
 import { useIsFetching } from '@tanstack/react-query'
@@ -92,6 +92,65 @@ export default function Layout() {
   const [settingsTab, setSettingsTab]   = useState<SettingsTab>('general')
   const [settingsExitTarget, setSettingsExitTarget] = useState<{ x: number; y: number } | null>(null)
   const settingsBtnRef = useRef<HTMLButtonElement>(null)
+
+  const [commandPaletteOpen, setCommandPaletteOpen] = useState(false)
+  const [paletteSearch, setPaletteSearch] = useState('')
+  const [selectedIndex, setSelectedIndex] = useState(0)
+
+  const ALL_ACTIONS = [
+    { name: 'Go to Dashboard', shortcut: 'G D', action: () => navigate('/dashboard'), icon: '📊' },
+    { name: 'View Predictive Analytics', shortcut: 'G P', action: () => navigate('/analytics'), icon: '🧠' },
+    { name: 'Create New Incident', shortcut: 'N I', action: () => navigate('/incidents/new'), icon: '➕' },
+    { name: 'View All Incidents', shortcut: 'G I', action: () => navigate('/incidents'), icon: '🎫' },
+    { name: 'Open System Settings', shortcut: 'S S', action: () => openSettings('general'), icon: '⚙️' },
+    { name: 'Toggle Dark Mode', shortcut: 'T D', action: () => {
+      const isDark = document.documentElement.classList.toggle('dark');
+      localStorage.setItem('theme', isDark ? 'dark' : 'light');
+    }, icon: '🌙' }
+  ]
+
+  const filteredActions = paletteSearch.trim() === ''
+    ? ALL_ACTIONS
+    : ALL_ACTIONS.filter(act => act.name.toLowerCase().includes(paletteSearch.toLowerCase()))
+
+  useEffect(() => {
+    function handleKeyDown(e: KeyboardEvent) {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+        e.preventDefault()
+        setCommandPaletteOpen(o => !o)
+      } else if (e.key === 'Escape') {
+        setCommandPaletteOpen(false)
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [])
+
+  useEffect(() => {
+    setSelectedIndex(0)
+  }, [paletteSearch])
+
+  useEffect(() => {
+    if (!commandPaletteOpen) return
+    function handlePaletteKeys(e: KeyboardEvent) {
+      if (e.key === 'ArrowDown') {
+        e.preventDefault()
+        setSelectedIndex(i => (i + 1) % Math.max(1, filteredActions.length))
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault()
+        setSelectedIndex(i => (i - 1 + filteredActions.length) % Math.max(1, filteredActions.length))
+      } else if (e.key === 'Enter') {
+        e.preventDefault()
+        if (filteredActions[selectedIndex]) {
+          filteredActions[selectedIndex].action()
+          setCommandPaletteOpen(false)
+          setPaletteSearch('')
+        }
+      }
+    }
+    window.addEventListener('keydown', handlePaletteKeys)
+    return () => window.removeEventListener('keydown', handlePaletteKeys)
+  }, [commandPaletteOpen, filteredActions, selectedIndex])
 
   function handleCloseSettings() {
     const btn = settingsBtnRef.current
@@ -177,6 +236,17 @@ export default function Layout() {
           {setupStatus?.company_name ?? 'ITSM'}
         </Link>
         <div className="flex items-center gap-3">
+          {/* Search Trigger Button */}
+          <button
+            onClick={() => setCommandPaletteOpen(true)}
+            className="flex items-center gap-1.5 px-2 py-1 text-2xs text-surface-400 hover:text-surface-600 border border-surface-200 hover:border-surface-300 bg-surface-50 transition-colors"
+            style={{ borderRadius: 4, height: 26 }}
+            title="Press Ctrl+K to search"
+          >
+            <Search size={11} />
+            <span>Search...</span>
+            <kbd className="bg-white px-1.5 py-0.5 border border-surface-200 rounded text-3xs font-mono select-none">Ctrl+K</kbd>
+          </button>
           <span className="text-xs text-surface-500">{email}</span>
           <button
             onClick={() => openSettings('general')}
@@ -219,13 +289,22 @@ export default function Layout() {
                       whileHover={{ x: 3 }}
                       whileTap={{ scale: 0.97 }}
                       transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+                      className="relative px-1"
                     >
+                      {active && (
+                        <motion.div
+                          layoutId="nav-indicator"
+                          className="absolute inset-x-1 rounded bg-surface-200 dark:bg-slate-800 z-0 no-theme-transition"
+                          style={{ height: 28, top: 0 }}
+                          transition={{ type: 'spring', stiffness: 380, damping: 30 }}
+                        />
+                      )}
                       <Link
                         to={item.to}
-                        className={`block px-3 text-xs transition-colors ${
+                        className={`relative z-10 block px-2 text-xs transition-colors ${
                           active
-                            ? 'bg-surface-200 text-surface-800 font-medium'
-                            : 'text-surface-700 hover:bg-surface-100'
+                            ? 'text-surface-800 dark:text-surface-100 font-medium'
+                            : 'text-surface-700 hover:bg-surface-100/40 dark:hover:bg-slate-800/30'
                         }`}
                         style={{ height: 28, lineHeight: '28px', textDecoration: 'none' }}
                       >
@@ -280,6 +359,88 @@ export default function Layout() {
         onClose={handleCloseSettings}
         exitTarget={settingsExitTarget}
       />
+
+      {/* Command Palette Overlay Modal */}
+      <AnimatePresence>
+        {commandPaletteOpen && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 0.4 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setCommandPaletteOpen(false)}
+              className="fixed inset-0 bg-slate-900 z-50 cursor-pointer"
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.97, y: -20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.97, y: -10 }}
+              transition={{ type: 'spring', damping: 25, stiffness: 350 }}
+              className="fixed top-[15%] left-1/2 -translate-x-1/2 w-[500px] max-w-full bg-white dark:bg-slate-950 border border-surface-200 dark:border-slate-800 shadow-2xl rounded-xl z-50 overflow-hidden flex flex-col no-theme-transition backdrop-glass"
+            >
+              {/* Input */}
+              <div className="flex items-center px-4 border-b border-surface-100 bg-transparent" style={{ height: 48 }}>
+                <Search size={14} className="text-surface-400 mr-2.5 flex-none" />
+                <input
+                  autoFocus
+                  value={paletteSearch}
+                  onChange={e => setPaletteSearch(e.target.value)}
+                  placeholder="Search dashboard actions, settings, pages..."
+                  className="flex-1 bg-transparent border-none focus:outline-none text-xs text-surface-800"
+                  style={{ border: 'none', background: 'transparent' }}
+                />
+                <kbd className="flex-none bg-surface-100 px-1.5 py-0.5 border border-surface-200 rounded text-3xs font-mono text-surface-400 select-none">ESC</kbd>
+              </div>
+
+              {/* Results */}
+              <div className="max-h-[300px] overflow-y-auto p-1.5 flex flex-col gap-0.5 bg-transparent">
+                {filteredActions.length === 0 ? (
+                  <p className="text-xs text-surface-400 italic text-center py-6">No matching actions found</p>
+                ) : (
+                  filteredActions.map((act, idx) => {
+                    const isSelected = idx === selectedIndex
+                    return (
+                      <button
+                        key={act.name}
+                        onClick={() => {
+                          act.action()
+                          setCommandPaletteOpen(false)
+                          setPaletteSearch('')
+                        }}
+                        className={`w-full flex items-center justify-between px-3 py-2 rounded text-left transition-colors ${
+                          isSelected
+                            ? 'bg-indigo-50 dark:bg-indigo-950/30 text-indigo-700 dark:text-indigo-400 font-medium'
+                            : 'text-surface-700 hover:bg-surface-50 dark:hover:bg-slate-900/30'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2.5">
+                          <span className="text-sm flex-none">{act.icon}</span>
+                          <span className="text-xs">{act.name}</span>
+                        </div>
+                        {act.shortcut && (
+                          <kbd className={`text-3xs font-mono px-1.5 py-0.5 border rounded ${
+                            isSelected
+                              ? 'bg-indigo-100/50 border-indigo-200 text-indigo-600'
+                              : 'bg-surface-100 border-surface-200 text-surface-400'
+                          }`}>
+                            {act.shortcut}
+                          </kbd>
+                        )}
+                      </button>
+                    )
+                  })
+                )}
+              </div>
+
+              {/* Footer tips */}
+              <div className="flex-none bg-surface-50 px-4 border-t border-surface-100 flex items-center justify-between text-4xs text-surface-400 font-medium uppercase tracking-wider" style={{ height: 28 }}>
+                <span>Use ↑↓ to navigate, Enter to select</span>
+                <span>Spotlight Palette</span>
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
     </div>
   )
 }

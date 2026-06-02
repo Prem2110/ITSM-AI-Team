@@ -319,3 +319,78 @@ html.dark .geom-loader {
     transition-duration:      0.01ms !important;
   }
 }
+
+/* ── UI Upgrades: Fluid Theme Transitions ─────────────────── */
+body, header, aside, main, div, button, span, nav, a, table, tr, td, th, section, input, select, textarea {
+  transition: background-color var(--dur-normal) var(--ease-out), border-color var(--dur-normal) var(--ease-out), color var(--dur-normal) var(--ease-out), box-shadow var(--dur-normal) var(--ease-out), transform var(--dur-normal) var(--ease-spring);
+}
+
+/* Exclude elements that shouldn't transition smoothly like loading indicators, progress rings */
+.no-theme-transition, .no-theme-transition *, svg, path, circle {
+  transition: none !important;
+}
+
+/* ── UI Upgrades: Glowing Premium Card Classes ────────────── */
+.glow-card-indigo {
+  transition: border-color var(--dur-normal) var(--ease-out), box-shadow var(--dur-normal) var(--ease-out), transform var(--dur-normal) var(--ease-spring) !important;
+}
+.glow-card-indigo:hover {
+  transform: translateY(-3px) !important;
+  box-shadow: 0 12px 24px -6px rgba(99, 102, 241, 0.22), 0 8px 12px -8px rgba(99, 102, 241, 0.18) !important;
+  border-color: rgba(99, 102, 241, 0.45) !important;
+}
+
+.glow-card-rose {
+  transition: border-color var(--dur-normal) var(--ease-out), box-shadow var(--dur-normal) var(--ease-out), transform var(--dur-normal) var(--ease-spring) !important;
+}
+.glow-card-rose:hover {
+  transform: translateY(-3px) !important;
+  box-shadow: 0 12px 24px -6px rgba(244, 63, 94, 0.22), 0 8px 12px -8px rgba(244, 63, 94, 0.18) !important;
+  border-color: rgba(244, 63, 94, 0.45) !important;
+}
+
+.glow-card-amber {
+  transition: border-color var(--dur-normal) var(--ease-out), box-shadow var(--dur-normal) var(--ease-out), transform var(--dur-normal) var(--ease-spring) !important;
+}
+.glow-card-amber:hover {
+  transform: translateY(-3px) !important;
+  box-shadow: 0 12px 24px -6px rgba(245, 158, 11, 0.22), 0 8px 12px -8px rgba(245, 158, 11, 0.18) !important;
+  border-color: rgba(245, 158, 11, 0.45) !important;
+}
+
+.glow-card-emerald {
+  transition: border-color var(--dur-normal) var(--ease-out), box-shadow var(--dur-normal) var(--ease-out), transform var(--dur-normal) var(--ease-spring) !important;
+}
+.glow-card-emerald:hover {
+  transform: translateY(-3px) !important;
+  box-shadow: 0 12px 24px -6px rgba(16, 185, 129, 0.22), 0 8px 12px -8px rgba(16, 185, 129, 0.18) !important;
+  border-color: rgba(16, 185, 129, 0.45) !important;
+}
+
+/* ── UI Upgrades: Timeline vertical connector line ───────── */
+.timeline-thread {
+  position: relative;
+}
+.timeline-thread::before {
+  content: '';
+  position: absolute;
+  top: 12px;
+  bottom: 12px;
+  left: 17px;
+  width: 2px;
+  background-color: var(--border-color);
+}
+
+/* ── UI Upgrades: Glowing pulse & glass utilities ─────────── */
+@keyframes heartbeat-pulse {
+  0%, 100% { transform: scale(1); filter: drop-shadow(0 0 2px rgba(239, 68, 68, 0.2)); }
+  50% { transform: scale(1.08); filter: drop-shadow(0 0 8px rgba(239, 68, 68, 0.7)); }
+}
+.pulse-breached {
+  animation: heartbeat-pulse 1.8s ease-in-out infinite;
+}
+
+.backdrop-glass {
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+}

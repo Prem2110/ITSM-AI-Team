@@ -1078,31 +1078,43 @@ export function SettingsModal({ open, defaultTab = 'general', onClose, exitTarge
       <motion.div
         onClick={e => e.stopPropagation()}
         initial={{
-          opacity: 0.6, scaleX: 0.06, scaleY: 0.35, y: '38vh',
-          clipPath: 'polygon(0% 0%, 100% 0%, 100% 100%, 0% 100%)',
+          opacity: 0,
+          scaleX: 0.05,
+          scaleY: 0.05,
+          x: exitTarget?.x ?? 0,
+          y: exitTarget?.y ?? 300,
+          clipPath: 'polygon(0% 0%, 100% 0%, 50% 100%, 50% 100%)',
         }}
         animate={{
-          opacity: 1, scaleX: 1, scaleY: 1, y: 0,
+          opacity: 1,
+          scaleX: 1,
+          scaleY: 1,
+          x: 0,
+          y: 0,
           clipPath: 'polygon(0% 0%, 100% 0%, 100% 100%, 0% 100%)',
           transition: {
-            opacity: { duration: 0.22 },
-            scaleY:  { duration: 0.48, ease: [0.22, 1, 0.36, 1] },
-            scaleX:  { duration: 0.38, delay: 0.12, ease: [0.22, 1, 0.36, 1] },
-            y:       { duration: 0.48, ease: [0.22, 1, 0.36, 1] },
+            opacity: { duration: 0.18 },
+            clipPath: { duration: 0.38, ease: [0.25, 0.46, 0.45, 0.94] },
+            scaleY:  { duration: 0.44, ease: [0.25, 0.46, 0.45, 0.94] },
+            scaleX:  { duration: 0.38, delay: 0.06, ease: [0.25, 0.46, 0.45, 0.94] },
+            x:       { duration: 0.44, ease: [0.25, 0.46, 0.45, 0.94] },
+            y:       { duration: 0.44, ease: [0.25, 0.46, 0.45, 0.94] },
           },
         }}
         exit={{
-          opacity:  0,
+          opacity: 0,
           clipPath: 'polygon(0% 0%, 100% 0%, 50% 100%, 50% 100%)',
-          scaleY:   0.08,
+          scaleY: 0.05,
+          scaleX: 0.05,
           x: exitTarget?.x ?? 0,
-          y: exitTarget?.y ?? 0,
+          y: exitTarget?.y ?? 300,
           transition: {
-            clipPath: { duration: 0.20, ease: [0.5, 0, 1, 1] },
-            scaleY:   { duration: 0.38, ease: [0.5, 0, 0.88, 1] },
-            x:        { duration: 0.42, ease: [0.5, 0, 0.82, 1] },
-            y:        { duration: 0.42, ease: [0.5, 0, 0.82, 1] },
-            opacity:  { duration: 0.14, delay: 0.30 },
+            clipPath: { duration: 0.22, ease: [0.55, 0.085, 0.68, 0.53] },
+            scaleY:   { duration: 0.38, ease: [0.55, 0.085, 0.68, 0.53] },
+            scaleX:   { duration: 0.38, ease: [0.55, 0.085, 0.68, 0.53] },
+            x:        { duration: 0.42, ease: [0.55, 0.085, 0.68, 0.53] },
+            y:        { duration: 0.42, ease: [0.55, 0.085, 0.68, 0.53] },
+            opacity:  { duration: 0.12, delay: 0.28 },
           },
         }}
         style={{
