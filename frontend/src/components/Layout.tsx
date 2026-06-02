@@ -336,7 +336,7 @@ export default function Layout() {
 
         {/* Main content — Push/Pop navigation like iOS */}
         <main className="flex-1 overflow-hidden bg-white flex flex-col">
-          <AnimatePresence mode="wait" initial={false} custom={navDirection}>
+          <AnimatePresence mode="sync" initial={false} custom={navDirection}>
             <motion.div
               key={location.pathname}
               custom={navDirection}
