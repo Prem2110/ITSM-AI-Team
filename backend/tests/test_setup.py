@@ -12,9 +12,9 @@ VALID_SETUP_PAYLOAD = {
     "resolution_codes": ["Fixed", "Workaround", "Cannot Reproduce"],
 }
 
-ADMIN_EMAIL = "admin@acme.com"
-AGENT_EMAIL = "agent@acme.com"
-REQUESTER_EMAIL = "req@acme.com"
+ADMIN_EMAIL = "admin@sierradigital.com"
+AGENT_EMAIL = "agent@sierradigital.com"
+REQUESTER_EMAIL = "req@sierradigital.com"
 
 ADMIN_H = {"X-Fake-User": ADMIN_EMAIL}
 AGENT_H = {"X-Fake-User": AGENT_EMAIL}

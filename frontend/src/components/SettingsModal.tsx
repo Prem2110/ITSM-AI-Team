@@ -1087,12 +1087,12 @@ export function SettingsModal({ open, defaultTab = 'general', onClose }: Props) 
           },
         }}
         exit={{
-          opacity: 0, scaleX: 0.06, scaleY: 0.3, y: '38vh',
+          opacity: 0, scaleX: 0.015, scaleY: 0, y: 0,
           transition: {
-            opacity: { duration: 0.28, delay: 0.06 },
-            scaleX: { duration: 0.18, ease: 'easeIn' },
-            scaleY: { duration: 0.32, delay: 0.06, ease: 'easeIn' },
-            y:      { duration: 0.32, delay: 0.04, ease: 'easeIn' },
+            opacity: { duration: 0.3, delay: 0.14 },
+            scaleX: { duration: 0.22, ease: [0.4, 0, 1, 1] },
+            scaleY: { duration: 0.22, delay: 0.14, ease: [0.4, 0, 1, 1] },
+            y:      { duration: 0 },
           },
         }}
         style={{

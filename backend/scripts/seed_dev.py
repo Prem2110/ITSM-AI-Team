@@ -20,26 +20,26 @@ async def seed() -> None:
     from sqlalchemy import select
     async with AsyncSessionLocal() as session:
         async with session.begin():
-            existing = await session.scalar(select(User).where(User.email == "karthik.byju@acme.com"))
+            existing = await session.scalar(select(User).where(User.email == "karthik.byju@sierradigital.com"))
             if existing:
                 print("Seed data already present — skipping.")
                 return
             # --- Users ---
             admin = User(
                 id=str(uuid.uuid4()),
-                email="karthik.byju@acme.com",
+                email="karthik.byju@sierradigital.com",
                 name="Karthik Byju",
                 role="admin",
             )
             agent = User(
                 id=str(uuid.uuid4()),
-                email="prem@acme.com",
+                email="prem@sierradigital.com",
                 name="Prem",
                 role="agent",
             )
             requester = User(
                 id=str(uuid.uuid4()),
-                email="ashok@acme.com",
+                email="ashok@sierradigital.com",
                 name="Ashok",
                 role="requester",
             )
@@ -161,7 +161,7 @@ async def seed() -> None:
             await session.flush()
 
     print("Seed complete.")
-    print(f"  Users:    3  (karthik.byju@acme.com, prem@acme.com, ashok@acme.com)")
+    print(f"  Users:    3  (karthik.byju@sierradigital.com, prem@sierradigital.com, ashok@sierradigital.com)")
     print(f"  Incidents: 5  ({inc1.number} … {inc5.number})")
     print(f"  Events:   11")
     print(f"  Attachments: 1  (on {inc1.number})")
