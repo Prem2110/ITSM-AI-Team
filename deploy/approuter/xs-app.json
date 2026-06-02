@@ -17,6 +17,7 @@
     {
       "source": "^/(.*)$",
       "localDir": "resources",
+      "target": "/index.html",
       "authenticationType": "none"
     }
   ]
