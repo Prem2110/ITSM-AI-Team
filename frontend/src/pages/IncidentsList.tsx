@@ -194,44 +194,42 @@ export default function IncidentsList() {
         onNew={() => navigate('/incidents/new')}
         actions={(
           <>
-            {/* View toggle */}
-            {isAgent && (
-              <div
+            {/* View toggle — available to all users */}
+            <div
+              style={{
+                display: 'inline-flex', borderRadius: 4, overflow: 'hidden',
+                border: '1px solid #e2e8f0',
+              }}
+            >
+              <button
+                onClick={() => switchView('list')}
+                title="List view"
                 style={{
-                  display: 'inline-flex', borderRadius: 4, overflow: 'hidden',
-                  border: '1px solid #e2e8f0',
+                  display: 'flex', alignItems: 'center', gap: 5,
+                  height: 28, padding: '0 9px', fontSize: 12, fontWeight: 500,
+                  border: 'none', cursor: 'pointer', transition: 'all 0.12s',
+                  background: viewMode === 'list' ? '#1e293b' : '#fff',
+                  color: viewMode === 'list' ? '#fff' : '#64748b',
                 }}
               >
-                <button
-                  onClick={() => switchView('list')}
-                  title="List view"
-                  style={{
-                    display: 'flex', alignItems: 'center', gap: 5,
-                    height: 28, padding: '0 9px', fontSize: 12, fontWeight: 500,
-                    border: 'none', cursor: 'pointer', transition: 'all 0.12s',
-                    background: viewMode === 'list' ? '#1e293b' : '#fff',
-                    color: viewMode === 'list' ? '#fff' : '#64748b',
-                  }}
-                >
-                  <List size={13} />
-                  List
-                </button>
-                <button
-                  onClick={() => switchView('kanban')}
-                  title="Board view"
-                  style={{
-                    display: 'flex', alignItems: 'center', gap: 5,
-                    height: 28, padding: '0 9px', fontSize: 12, fontWeight: 500,
-                    border: 'none', borderLeft: '1px solid #e2e8f0', cursor: 'pointer', transition: 'all 0.12s',
-                    background: viewMode === 'kanban' ? '#1e293b' : '#fff',
-                    color: viewMode === 'kanban' ? '#fff' : '#64748b',
-                  }}
-                >
-                  <Columns size={13} />
-                  Board
-                </button>
-              </div>
-            )}
+                <List size={13} />
+                List
+              </button>
+              <button
+                onClick={() => switchView('kanban')}
+                title="Board view"
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 5,
+                  height: 28, padding: '0 9px', fontSize: 12, fontWeight: 500,
+                  border: 'none', borderLeft: '1px solid #e2e8f0', cursor: 'pointer', transition: 'all 0.12s',
+                  background: viewMode === 'kanban' ? '#1e293b' : '#fff',
+                  color: viewMode === 'kanban' ? '#fff' : '#64748b',
+                }}
+              >
+                <Columns size={13} />
+                Board
+              </button>
+            </div>
 
             {aiEnabled && (
               <button
