@@ -1,10 +1,12 @@
 import React, { useState, useMemo } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { 
+import {
   ChevronLeft, AlertTriangle, ChevronDown, Loader2, Brain,
-  MessageSquare, Lock, ArrowRight, UserPlus, FileUp, FileText 
+  MessageSquare, Lock, ArrowRight, UserPlus, FileUp, FileText
 } from 'lucide-react'
+import { useCollaboration } from '@/hooks/useCollaboration'
+import type { PresenceUser } from '@/hooks/useCollaboration'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Skeleton } from '@/components/Skeleton'
 import { useIncident, useMe, useUsers, usePriorities, useCategories, useStates, useResolutionCodes } from '@/hooks'
@@ -94,6 +96,20 @@ function StatusStepper({ currentState }: { currentState: string }) {
           return items
         })}
       </div>
+    </div>
+  )
+}
+
+function LockedByBadge({ user }: { user: PresenceUser }) {
+  return (
+    <div style={{
+      display: 'inline-flex', alignItems: 'center', gap: 4,
+      padding: '2px 7px', borderRadius: 3, fontSize: 10,
+      background: '#f1f5f9', border: '1px solid #e2e8f0', color: '#64748b',
+    }}>
+      <div style={{ width: 5, height: 5, borderRadius: '50%', background: user.color, flexShrink: 0 }} />
+      <Lock size={9} style={{ color: '#94a3b8' }} />
+      {user.name.split(' ')[0]} is editing
     </div>
   )
 }
@@ -362,6 +378,8 @@ export default function IncidentDetail() {
   const isAgent = me?.scopes?.includes('Agent') ?? false
   const { data: allUsers } = useUsers(undefined, isAgent)
 
+  const { presence, lockField, unlockField, lockedBy } = useCollaboration(id!, me?.user_id)
+
   const userMap = useMemo(() => {
     const map: Record<string, string> = {}
     if (incident?.requester) map[incident.requester_id] = incident.requester.name
@@ -456,6 +474,7 @@ export default function IncidentDetail() {
       patchMut.mutate({ title: trimmed })
     }
     setEditTitle(false)
+    unlockField('title')
   }
 
   function saveDesc() {
@@ -463,6 +482,7 @@ export default function IncidentDetail() {
       patchMut.mutate({ description: descDraft })
     }
     setEditDesc(false)
+    unlockField('description')
   }
 
   function submitComment() {
@@ -544,25 +564,78 @@ export default function IncidentDetail() {
             onBlur={saveTitle}
             onKeyDown={e => {
               if (e.key === 'Enter') saveTitle()
-              if (e.key === 'Escape') setEditTitle(false)
+              if (e.key === 'Escape') { setEditTitle(false); unlockField('title') }
             }}
             className="flex-1 font-semibold bg-transparent border-b border-surface-400 focus:outline-none focus:border-surface-700 min-w-0"
             style={{ fontSize: 15 }}
           />
         ) : (
           <span
-            className={`flex-1 font-semibold text-surface-900 truncate ${isAgent && !isClosed ? 'cursor-pointer hover:text-surface-600' : ''}`}
+            className={`flex-1 font-semibold text-surface-900 truncate ${isAgent && !isClosed && !lockedBy('title') ? 'cursor-pointer hover:text-surface-600' : ''}`}
             style={{ fontSize: 15 }}
             onClick={() => {
-              if (isAgent && !isClosed) {
+              if (isAgent && !isClosed && !lockedBy('title')) {
                 setTitleDraft(incident.title)
                 setEditTitle(true)
+                lockField('title')
               }
             }}
             title={incident.title}
           >
             {incident.title}
           </span>
+        )}
+
+        {/* Presence avatars */}
+        {presence.length > 0 && (
+          <div className="flex items-center flex-none" style={{ marginRight: 2 }}>
+            {presence.slice(0, 4).map((user, i) => {
+              const initials = user.name.split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase()
+              const isEditing = !!user.editing_field
+              const fieldLabel = user.editing_field?.replace(/_/g, ' ') ?? ''
+              return (
+                <div
+                  key={user.user_id}
+                  title={isEditing ? `${user.name} — editing ${fieldLabel}` : user.name}
+                  style={{
+                    position: 'relative', width: 22, height: 22, borderRadius: '50%',
+                    background: user.color, color: '#fff',
+                    fontSize: 9, fontWeight: 700, flexShrink: 0,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    border: '2px solid #fff',
+                    marginLeft: i === 0 ? 0 : -6,
+                    zIndex: 10 - i,
+                    boxShadow: isEditing
+                      ? `0 0 0 2px ${user.color}66`
+                      : '0 1px 3px rgba(0,0,0,0.14)',
+                    cursor: 'default',
+                  }}
+                >
+                  {initials}
+                  {isEditing && (
+                    <span
+                      className="animate-ping"
+                      style={{
+                        position: 'absolute', inset: -3, borderRadius: '50%',
+                        border: `2px solid ${user.color}`,
+                        opacity: 0.55, pointerEvents: 'none',
+                      }}
+                    />
+                  )}
+                </div>
+              )
+            })}
+            {presence.length > 4 && (
+              <div style={{
+                width: 22, height: 22, borderRadius: '50%',
+                background: '#e2e8f0', color: '#475569', fontSize: 9, fontWeight: 700,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                border: '2px solid #fff', marginLeft: -6, flexShrink: 0, zIndex: 6,
+              }}>
+                +{presence.length - 4}
+              </div>
+            )}
+          </div>
         )}
 
         <div className="flex items-center gap-2 flex-none">
@@ -770,7 +843,7 @@ export default function IncidentDetail() {
                     {patchMut.isPending ? 'Saving…' : 'Save'}
                   </SpinButton>
                   <button
-                    onClick={() => setEditDesc(false)}
+                    onClick={() => { setEditDesc(false); unlockField('description') }}
                     className="text-xs text-surface-500 hover:text-surface-700"
                   >
                     Cancel
@@ -778,18 +851,26 @@ export default function IncidentDetail() {
                 </div>
               </div>
             ) : (
-              <div
-                className={`text-xs text-surface-700 whitespace-pre-wrap leading-relaxed${isAgent && !isClosed ? ' cursor-pointer hover:bg-surface-50 -mx-1 px-1' : ''}`}
-                onClick={() => {
-                  if (isAgent && !isClosed) {
-                    setDescDraft(incident.description)
-                    setEditDesc(true)
-                  }
-                }}
-                title={isAgent && !isClosed ? 'Click to edit' : undefined}
-              >
-                {incident.description || <span className="text-surface-400 italic">No description provided.</span>}
-              </div>
+              <>
+                {lockedBy('description') && (
+                  <div style={{ marginBottom: 6 }}>
+                    <LockedByBadge user={lockedBy('description')!} />
+                  </div>
+                )}
+                <div
+                  className={`text-xs text-surface-700 whitespace-pre-wrap leading-relaxed${isAgent && !isClosed && !lockedBy('description') ? ' cursor-pointer hover:bg-surface-50 -mx-1 px-1' : ''}`}
+                  onClick={() => {
+                    if (isAgent && !isClosed && !lockedBy('description')) {
+                      setDescDraft(incident.description)
+                      setEditDesc(true)
+                      lockField('description')
+                    }
+                  }}
+                  title={isAgent && !isClosed && !lockedBy('description') ? 'Click to edit' : undefined}
+                >
+                  {incident.description || <span className="text-surface-400 italic">No description provided.</span>}
+                </div>
+              </>
             )}
           </div>
 
@@ -877,10 +958,17 @@ export default function IncidentDetail() {
           style={{ width: 236 }}
         >
           <FieldSection label="Priority">
-            {isAgent && !isClosed ? (
+            {isAgent && !isClosed && lockedBy('priority') ? (
+              <>
+                <PriorityBadge priority={incident.priority} priorities={priorities} />
+                <div style={{ marginTop: 4 }}><LockedByBadge user={lockedBy('priority')!} /></div>
+              </>
+            ) : isAgent && !isClosed ? (
               <select
                 value={incident.priority}
                 onChange={e => patchMut.mutate({ priority: Number(e.target.value) })}
+                onFocus={() => lockField('priority')}
+                onBlur={() => unlockField('priority')}
                 className="w-full text-xs border border-surface-200 bg-white px-2 py-1 focus:outline-none focus:border-surface-400"
                 style={{ borderRadius: 2 }}
               >
@@ -894,10 +982,17 @@ export default function IncidentDetail() {
           </FieldSection>
 
           <FieldSection label="Category">
-            {isAgent && !isClosed ? (
+            {isAgent && !isClosed && lockedBy('category') ? (
+              <>
+                <span className="text-surface-800">{incident.category}</span>
+                <div style={{ marginTop: 4 }}><LockedByBadge user={lockedBy('category')!} /></div>
+              </>
+            ) : isAgent && !isClosed ? (
               <select
                 value={incident.category}
                 onChange={e => patchMut.mutate({ category: e.target.value })}
+                onFocus={() => lockField('category')}
+                onBlur={() => unlockField('category')}
                 className="w-full text-xs border border-surface-200 bg-white px-2 py-1 focus:outline-none focus:border-surface-400"
                 style={{ borderRadius: 2 }}
               >
@@ -909,10 +1004,19 @@ export default function IncidentDetail() {
           </FieldSection>
 
           <FieldSection label="Assignee">
-            {isAgent && !isClosed ? (
+            {isAgent && !isClosed && lockedBy('assignee') ? (
+              <>
+                <span className="text-surface-800">
+                  {incident.assignee?.name ?? <span className="text-surface-400">Unassigned</span>}
+                </span>
+                <div style={{ marginTop: 4 }}><LockedByBadge user={lockedBy('assignee')!} /></div>
+              </>
+            ) : isAgent && !isClosed ? (
               <select
                 value={incident.assignee_id ?? ''}
                 onChange={e => patchMut.mutate({ assignee_id: e.target.value || null })}
+                onFocus={() => lockField('assignee')}
+                onBlur={() => unlockField('assignee')}
                 className="w-full text-xs border border-surface-200 bg-white px-2 py-1 focus:outline-none focus:border-surface-400"
                 style={{ borderRadius: 2 }}
               >
