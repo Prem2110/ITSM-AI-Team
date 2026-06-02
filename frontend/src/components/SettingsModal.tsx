@@ -607,33 +607,20 @@ function DangerZone() {
 
 // ─── AI & Automation Tab ──────────────────────────────────────────────────────
 
+// Only free-tier OpenRouter models are listed here.
+// Any other model ID can be pasted directly into the input below.
 const OPENROUTER_MODELS = [
-  // Free tier
-  { id: 'openai/gpt-oss-120b:free',                       label: 'GPT OSS 120B',            free: true  },
-  { id: 'meta-llama/llama-3.1-8b-instruct:free',          label: 'Llama 3.1 8B',            free: true  },
-  { id: 'meta-llama/llama-3.2-3b-instruct:free',          label: 'Llama 3.2 3B',            free: true  },
-  { id: 'meta-llama/llama-3.3-70b-instruct:free',         label: 'Llama 3.3 70B',           free: true  },
-  { id: 'mistralai/mistral-7b-instruct:free',              label: 'Mistral 7B',              free: true  },
-  { id: 'google/gemma-2-9b-it:free',                       label: 'Gemma 2 9B',              free: true  },
-  { id: 'google/gemma-3-12b-it:free',                      label: 'Gemma 3 12B',             free: true  },
-  { id: 'qwen/qwen-2.5-7b-instruct:free',                  label: 'Qwen 2.5 7B',             free: true  },
-  { id: 'deepseek/deepseek-r1-distill-llama-70b:free',     label: 'DeepSeek R1 70B',         free: true  },
-  { id: 'microsoft/phi-3-mini-128k-instruct:free',         label: 'Phi-3 Mini 128K',         free: true  },
-  { id: 'openchat/openchat-7b:free',                       label: 'OpenChat 7B',             free: true  },
-  // Paid
-  { id: 'openai/gpt-4o-mini',                              label: 'GPT-4o Mini',             free: false },
-  { id: 'openai/gpt-4o',                                   label: 'GPT-4o',                  free: false },
-  { id: 'openai/o1-mini',                                  label: 'O1 Mini',                 free: false },
-  { id: 'openai/o3-mini',                                  label: 'O3 Mini',                 free: false },
-  { id: 'anthropic/claude-3-haiku',                        label: 'Claude 3 Haiku',          free: false },
-  { id: 'anthropic/claude-3.5-haiku',                      label: 'Claude 3.5 Haiku',        free: false },
-  { id: 'anthropic/claude-3.5-sonnet',                     label: 'Claude 3.5 Sonnet',       free: false },
-  { id: 'meta-llama/llama-3.1-70b-instruct',               label: 'Llama 3.1 70B',           free: false },
-  { id: 'meta-llama/llama-3.1-405b-instruct',              label: 'Llama 3.1 405B',          free: false },
-  { id: 'qwen/qwen-2.5-72b-instruct',                      label: 'Qwen 2.5 72B',            free: false },
-  { id: 'mistralai/mistral-large',                         label: 'Mistral Large',           free: false },
-  { id: 'deepseek/deepseek-chat',                          label: 'DeepSeek V3',             free: false },
-  { id: 'deepseek/deepseek-r1',                            label: 'DeepSeek R1',             free: false },
+  { id: 'openai/gpt-oss-120b:free',                       label: 'GPT OSS 120B'        },
+  { id: 'meta-llama/llama-3.3-70b-instruct:free',         label: 'Llama 3.3 70B'       },
+  { id: 'meta-llama/llama-3.1-8b-instruct:free',          label: 'Llama 3.1 8B'        },
+  { id: 'meta-llama/llama-3.2-3b-instruct:free',          label: 'Llama 3.2 3B'        },
+  { id: 'mistralai/mistral-7b-instruct:free',              label: 'Mistral 7B'          },
+  { id: 'google/gemma-3-12b-it:free',                      label: 'Gemma 3 12B'         },
+  { id: 'google/gemma-2-9b-it:free',                       label: 'Gemma 2 9B'          },
+  { id: 'qwen/qwen-2.5-7b-instruct:free',                  label: 'Qwen 2.5 7B'         },
+  { id: 'deepseek/deepseek-r1-distill-llama-70b:free',     label: 'DeepSeek R1 70B'     },
+  { id: 'microsoft/phi-3-mini-128k-instruct:free',         label: 'Phi-3 Mini 128K'     },
+  { id: 'openchat/openchat-7b:free',                       label: 'OpenChat 7B'         },
 ]
 
 // ─── Model Picker combobox ────────────────────────────────────────────────────
@@ -656,63 +643,83 @@ function ModelPicker({ value, onChange, disabled }: {
     return () => document.removeEventListener('mousedown', handler)
   }, [])
 
-  const filtered = value.trim()
+  const query = value.trim().toLowerCase()
+  const filtered = query
     ? OPENROUTER_MODELS.filter(m =>
-        m.id.toLowerCase().includes(value.toLowerCase()) ||
-        m.label.toLowerCase().includes(value.toLowerCase())
+        m.id.toLowerCase().includes(query) || m.label.toLowerCase().includes(query)
       )
     : OPENROUTER_MODELS
 
+  // True when the typed value doesn't exactly match any known model
+  const isCustom = value.trim() !== '' && !OPENROUTER_MODELS.some(m => m.id === value.trim())
+
   return (
     <div ref={containerRef} className="relative">
-      <input
-        type="text"
-        value={value}
-        onChange={e => { onChange(e.target.value); setOpen(true) }}
-        onFocus={() => setOpen(true)}
-        disabled={disabled}
-        placeholder="Type or pick a model…"
-        className={disabled ? disabledCls : inputCls}
-        style={{ borderRadius: 2 }}
-      />
+      <div className="relative">
+        <input
+          type="text"
+          value={value}
+          onChange={e => { onChange(e.target.value); setOpen(true) }}
+          onFocus={() => setOpen(true)}
+          disabled={disabled}
+          placeholder="Pick a free model or paste any OpenRouter ID…"
+          className={disabled ? disabledCls : inputCls}
+          style={{ borderRadius: 2, paddingRight: isCustom ? 72 : undefined }}
+        />
+        {isCustom && !disabled && (
+          <span
+            className="absolute right-2 top-1/2 -translate-y-1/2 text-2xs font-semibold text-violet-600 bg-violet-50 border border-violet-200 px-1.5 py-0.5 pointer-events-none"
+            style={{ borderRadius: 3 }}
+          >
+            CUSTOM
+          </span>
+        )}
+      </div>
+
       {open && !disabled && (
         <div
           className="absolute z-50 left-0 right-0 bg-white border border-surface-200 shadow-lg overflow-y-auto"
-          style={{ top: '100%', marginTop: 2, borderRadius: 3, maxHeight: 220 }}
+          style={{ top: '100%', marginTop: 2, borderRadius: 3, maxHeight: 232 }}
         >
-          {filtered.length === 0 ? (
-            <div className="px-3 py-2 text-xs text-surface-400 italic">No matches — your custom ID will be used</div>
-          ) : (
+          {/* Free models list */}
+          {filtered.length > 0 && (
             <>
-              {filtered.some(m => m.free) && (
-                <div className="px-3 pt-2 pb-1 text-2xs font-semibold text-surface-400 uppercase tracking-widest">Free</div>
-              )}
-              {filtered.filter(m => m.free).map(m => (
+              <div className="px-3 pt-2 pb-1 text-2xs font-semibold text-surface-400 uppercase tracking-widest">
+                Free models
+              </div>
+              {filtered.map(m => (
                 <button
                   key={m.id}
                   type="button"
                   onMouseDown={e => { e.preventDefault(); onChange(m.id); setOpen(false) }}
                   className={`flex items-center justify-between w-full text-left px-3 py-1.5 text-xs transition-colors hover:bg-violet-50 ${value === m.id ? 'bg-violet-50 text-violet-700' : 'text-surface-700'}`}
                 >
-                  <span>{m.id}</span>
-                  <span className="text-2xs font-semibold text-green-600 bg-green-50 border border-green-200 px-1.5 py-0.5 ml-2 flex-none" style={{ borderRadius: 3 }}>FREE</span>
-                </button>
-              ))}
-              {filtered.some(m => !m.free) && (
-                <div className="px-3 pt-2 pb-1 text-2xs font-semibold text-surface-400 uppercase tracking-widest border-t border-surface-100 mt-1">Paid</div>
-              )}
-              {filtered.filter(m => !m.free).map(m => (
-                <button
-                  key={m.id}
-                  type="button"
-                  onMouseDown={e => { e.preventDefault(); onChange(m.id); setOpen(false) }}
-                  className={`flex items-center w-full text-left px-3 py-1.5 text-xs transition-colors hover:bg-surface-50 ${value === m.id ? 'bg-surface-100 font-medium' : 'text-surface-700'}`}
-                >
-                  {m.id}
+                  <span className="truncate mr-2">{m.id}</span>
+                  <span
+                    className="text-2xs font-semibold text-green-600 bg-green-50 border border-green-200 px-1.5 py-0.5 flex-none"
+                    style={{ borderRadius: 3 }}
+                  >
+                    FREE
+                  </span>
                 </button>
               ))}
             </>
           )}
+
+          {filtered.length === 0 && (
+            <div className="px-3 py-2 text-xs text-surface-400 italic">
+              No free models match — your custom ID will be used as-is
+            </div>
+          )}
+
+          {/* Custom paste hint */}
+          <div className="border-t border-surface-100 px-3 py-2 mt-1">
+            <p className="text-2xs text-surface-400 leading-relaxed">
+              Need a different model?{' '}
+              <span className="font-medium text-surface-600">openrouter.ai/models</span>
+              {' '}→ copy the model ID → paste it above.
+            </p>
+          </div>
         </div>
       )}
     </div>
@@ -828,8 +835,9 @@ function AITab() {
           <label className="block text-xs font-medium text-surface-600 mb-1">Model</label>
           <ModelPicker value={model} onChange={setModel} disabled={!isAdmin} />
           <p className="text-2xs text-surface-400 mt-1">
-            Pick from the list or type any custom model ID from{' '}
-            <span className="font-medium text-surface-600">openrouter.ai/models</span>
+            Free models are listed above. For any other model, copy its ID from{' '}
+            <span className="font-medium text-surface-600">openrouter.ai/models</span>{' '}
+            and paste it directly into the field.
           </p>
         </div>
 
