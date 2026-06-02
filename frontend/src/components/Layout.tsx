@@ -15,7 +15,8 @@ const pageVariants = {
   animate: { opacity: 1, x: 0, y: 0 },
   exit:    (dir: number) => ({ opacity: 0, x: dir > 0 ? -32 : dir < 0 ? 32 : 0, y: dir === 0 ? -4 : 0 }),
 }
-import { Settings, Search } from 'lucide-react'
+import { Settings, Search, HelpCircle } from 'lucide-react'
+import { HelpModal } from '@/components/HelpModal'
 import { clearFakeUser, getFakeUser } from '@/api/auth'
 import { useNavigate } from 'react-router-dom'
 import { useIsFetching } from '@tanstack/react-query'
@@ -93,6 +94,7 @@ export default function Layout() {
   const [settingsExitTarget, setSettingsExitTarget] = useState<{ x: number; y: number } | null>(null)
   const settingsBtnRef = useRef<HTMLButtonElement>(null)
 
+  const [helpOpen, setHelpOpen] = useState(false)
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false)
   const [paletteSearch, setPaletteSearch] = useState('')
   const [selectedIndex, setSelectedIndex] = useState(0)
@@ -249,12 +251,12 @@ export default function Layout() {
           </button>
           <span className="text-xs text-surface-500">{email}</span>
           <button
-            onClick={() => openSettings('general')}
-            className="flex items-center justify-center text-surface-500 hover:text-surface-700 hover:bg-surface-50 border border-surface-200 transition-colors"
+            onClick={() => setHelpOpen(true)}
+            className="flex items-center justify-center text-surface-500 hover:text-indigo-600 hover:bg-indigo-50 border border-surface-200 transition-colors"
             style={{ width: 26, height: 26, borderRadius: 2 }}
-            title="Settings"
+            title="Help & Guide"
           >
-            <Settings size={13} />
+            <HelpCircle size={13} />
           </button>
           <button
             onClick={handleLogout}
@@ -335,7 +337,8 @@ export default function Layout() {
         </aside>
 
         {/* Main content — Push/Pop navigation like iOS */}
-        <main className="flex-1 overflow-hidden bg-white flex flex-col">
+        {/* position:relative + absolute motion.div prevents flex siblings splitting height during sync cross-fade */}
+        <main className="flex-1 overflow-hidden bg-white" style={{ position: 'relative' }}>
           <AnimatePresence mode="sync" initial={false} custom={navDirection}>
             <motion.div
               key={location.pathname}
@@ -345,13 +348,15 @@ export default function Layout() {
               animate="animate"
               exit="exit"
               transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
-              className="flex-1 flex flex-col overflow-hidden"
+              style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}
             >
               <Outlet />
             </motion.div>
           </AnimatePresence>
         </main>
       </div>
+
+      <HelpModal open={helpOpen} onClose={() => setHelpOpen(false)} />
 
       <SettingsModal
         open={settingsOpen}
