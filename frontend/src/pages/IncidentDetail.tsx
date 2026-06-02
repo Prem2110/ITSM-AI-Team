@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import React, { useState, useMemo } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { 
@@ -16,6 +16,87 @@ import { PriorityBadge } from '@/components/PriorityBadge'
 import { SpinButton } from '@/components/SpinButton'
 import { relativeTime } from '@/utils/relativeTime'
 import type { IncidentEvent } from '@/types'
+
+const STATE_ORDER = ['new', 'assigned', 'in_progress', 'on_hold', 'resolved', 'closed']
+
+const TRANSITION_LABELS: Record<string, string> = {
+  new: 'Reopen',
+  assigned: 'Assign',
+  in_progress: 'Start Work',
+  on_hold: 'Put on Hold',
+  resolved: 'Resolve',
+  closed: 'Close',
+}
+
+// Primary "forward" transitions shown as inline buttons; others visible only in the badge popover
+const PRIMARY_TRANSITIONS: Record<string, string[]> = {
+  new: ['assigned'],
+  assigned: ['in_progress', 'on_hold'],
+  in_progress: ['resolved', 'on_hold'],
+  on_hold: ['in_progress'],
+  resolved: ['closed'],
+  closed: [],
+}
+
+const STEPPER_META: Record<string, { label: string; color: string }> = {
+  new:         { label: 'New',         color: '#1d4ed8' },
+  assigned:    { label: 'Assigned',    color: '#7c3aed' },
+  in_progress: { label: 'In Progress', color: '#a16207' },
+  on_hold:     { label: 'On Hold',     color: '#475569' },
+  resolved:    { label: 'Resolved',    color: '#15803d' },
+  closed:      { label: 'Closed',      color: '#334155' },
+}
+
+function StatusStepper({ currentState }: { currentState: string }) {
+  const currentIdx = STATE_ORDER.indexOf(currentState)
+  return (
+    <div className="flex-none border-b border-surface-100 bg-white" style={{ paddingLeft: 20, paddingRight: 20, height: 34 }}>
+      <div className="flex items-center h-full">
+        {STATE_ORDER.flatMap((state, i) => {
+          const isPast = i < currentIdx
+          const isCurrent = i === currentIdx
+          const meta = STEPPER_META[state] ?? { label: state, color: '#475569' }
+          const items: React.ReactNode[] = [
+            <div key={`node-${state}`} className="flex items-center gap-1.5 flex-none">
+              <motion.div
+                animate={{
+                  backgroundColor: isCurrent ? meta.color : isPast ? '#94a3b8' : 'transparent',
+                  borderColor: isCurrent ? meta.color : isPast ? '#94a3b8' : '#d1d5db',
+                  scale: isCurrent ? 1.3 : 1,
+                }}
+                transition={{ duration: 0.22 }}
+                style={{ width: 7, height: 7, borderRadius: '50%', border: '1.5px solid', flexShrink: 0 }}
+              />
+              <span style={{
+                fontSize: 10,
+                fontWeight: isCurrent ? 700 : 400,
+                color: isCurrent ? meta.color : isPast ? '#64748b' : '#d1d5db',
+                whiteSpace: 'nowrap',
+                transition: 'color 0.2s',
+              }}>
+                {meta.label}
+              </span>
+            </div>,
+          ]
+          if (i < STATE_ORDER.length - 1) {
+            items.push(
+              <div
+                key={`line-${i}`}
+                style={{
+                  flex: 1, height: 1, minWidth: 10,
+                  background: i < currentIdx ? '#94a3b8' : '#e2e8f0',
+                  margin: '0 6px',
+                  transition: 'background 0.3s',
+                }}
+              />
+            )
+          }
+          return items
+        })}
+      </div>
+    </div>
+  )
+}
 
 function FieldSection({ label, children }: { label: string; children: React.ReactNode }) {
   return (
@@ -351,6 +432,11 @@ export default function IncidentDetail() {
     return statesConfig.transitions[incident.state] ?? []
   }, [incident, statesConfig])
 
+  const primaryTransitions = useMemo(() => {
+    const primary = PRIMARY_TRANSITIONS[incident?.state ?? ''] ?? []
+    return validTransitions.filter(t => primary.includes(t))
+  }, [validTransitions, incident?.state])
+
   function handleTransitionClick(toState: string) {
     setTransitionOpen(false)
     if (toState === 'resolved') {
@@ -480,7 +566,42 @@ export default function IncidentDetail() {
         )}
 
         <div className="flex items-center gap-2 flex-none">
-          <StateBadge state={incident.state} />
+          {/* Clickable status badge (option 2) — opens full transition popover */}
+          {isAgent && validTransitions.length > 0 ? (
+            <div className="relative">
+              <button
+                onClick={() => setTransitionOpen(v => !v)}
+                disabled={transitionMut.isPending}
+                className="flex items-center gap-0.5 disabled:opacity-60"
+                title="Change status"
+              >
+                <StateBadge state={incident.state} />
+                <ChevronDown size={9} style={{ color: '#64748b', marginLeft: 1, marginTop: 1 }} />
+              </button>
+              {transitionOpen && (
+                <>
+                  <div className="fixed inset-0 z-[9]" onClick={() => setTransitionOpen(false)} />
+                  <div
+                    className="absolute left-0 top-full mt-1.5 bg-white border border-surface-200 shadow-lg z-10 py-1"
+                    style={{ borderRadius: 4, minWidth: 148 }}
+                  >
+                    {validTransitions.map(toState => (
+                      <button
+                        key={toState}
+                        onClick={() => handleTransitionClick(toState)}
+                        className="flex items-center gap-2 w-full text-left px-3 py-2 text-xs text-surface-700 hover:bg-surface-50"
+                      >
+                        <div style={{ width: 6, height: 6, borderRadius: '50%', background: STEPPER_META[toState]?.color ?? '#94a3b8', flexShrink: 0 }} />
+                        {TRANSITION_LABELS[toState] ?? toState.replace(/_/g, ' ')}
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
+          ) : (
+            <StateBadge state={incident.state} />
+          )}
           <PriorityBadge priority={incident.priority} priorities={priorities} />
 
           {incident.sla_breached && (
@@ -513,41 +634,28 @@ export default function IncidentDetail() {
             </button>
           )}
 
-          {/* Agent transition dropdown */}
-          {isAgent && validTransitions.length > 0 && (
-            <div className="relative">
-              <button
-                onClick={() => setTransitionOpen(v => !v)}
-                disabled={transitionMut.isPending}
-                className="flex items-center gap-1 text-xs border border-surface-200 px-2 py-0.5 hover:bg-surface-50 text-surface-600 hover:text-surface-800 transition-colors disabled:opacity-50"
-                style={{ borderRadius: 2 }}
-              >
-                {transitionMut.isPending
-                  ? <><Loader2 size={11} className="animate-spin flex-none" />Saving…</>
-                  : <>Transition<ChevronDown size={11} /></>
-                }
-              </button>
-              {transitionOpen && (
-                <>
-                  <div className="fixed inset-0 z-[9]" onClick={() => setTransitionOpen(false)} />
-                  <div
-                    className="absolute right-0 top-full mt-1 bg-white border border-surface-200 shadow-lg z-10 py-1"
-                    style={{ borderRadius: 2, minWidth: 130 }}
-                  >
-                    {validTransitions.map(state => (
-                      <button
-                        key={state}
-                        onClick={() => handleTransitionClick(state)}
-                        className="block w-full text-left px-3 py-1.5 text-xs text-surface-700 hover:bg-surface-100 capitalize"
-                      >
-                        {state.replace(/_/g, ' ')}
-                      </button>
-                    ))}
-                  </div>
-                </>
-              )}
+          {/* Pending spinner */}
+          {isAgent && transitionMut.isPending && (
+            <div className="flex items-center gap-1 text-xs text-surface-500">
+              <Loader2 size={11} className="animate-spin flex-none" />
+              Saving…
             </div>
           )}
+          {/* Inline primary action buttons (option 3) */}
+          {isAgent && !transitionMut.isPending && primaryTransitions.map(toState => {
+            const color = STEPPER_META[toState]?.color ?? '#475569'
+            return (
+              <button
+                key={toState}
+                onClick={() => handleTransitionClick(toState)}
+                className="flex items-center gap-1 text-xs px-2 py-0.5 border hover:bg-surface-50 transition-colors"
+                style={{ borderRadius: 2, borderColor: `${color}55`, color }}
+              >
+                {TRANSITION_LABELS[toState] ?? toState.replace(/_/g, ' ')}
+                <ArrowRight size={9} className="flex-none" />
+              </button>
+            )
+          })}
 
           {/* Requester "close" button */}
           {canClose && (
@@ -562,6 +670,9 @@ export default function IncidentDetail() {
           )}
         </div>
       </div>
+
+      {/* Status progress stepper */}
+      <StatusStepper currentState={incident.state} />
 
       {/* Resolution form strip */}
       {showResForm && (
