@@ -1,6 +1,7 @@
-import { useEffect, useRef, useState } from 'react'
+import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
+import { List, Columns } from 'lucide-react'
 
 function parseIncidentError(error: unknown): string {
   const err = error as any
@@ -22,16 +23,19 @@ function parseIncidentError(error: unknown): string {
 }
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useIncidents } from '@/hooks/useIncidents'
-import { usePriorities } from '@/hooks/useConfig'
+import { usePriorities, useStates } from '@/hooks/useConfig'
 import { useIncidentFilters } from '@/hooks/useIncidentFilters'
 import { useHandoffReport } from '@/hooks/useAI'
 import { useAIStatus } from '@/hooks/useAI'
 import { useUsers } from '@/hooks/useUsers'
+import { useMe } from '@/hooks/useMe'
 import { Toolbar } from '@/components/Toolbar'
 import { FilterBar } from '@/components/FilterBar'
 import { IncidentTable } from '@/components/IncidentTable'
 import { Pagination } from '@/components/Pagination'
+import { KanbanBoard } from '@/components/KanbanBoard'
 import { exportIncidentsCsv, runAutoEscalations, patchIncident, transitionIncident } from '@/api/incidents'
+import type { IncidentState } from '@/types'
 
 export default function IncidentsList() {
   const navigate = useNavigate()
@@ -39,8 +43,28 @@ export default function IncidentsList() {
   const searchInputRef = useRef<HTMLInputElement>(null)
   const assignDropdownRef = useRef<HTMLDivElement>(null)
   const { data: priorities } = usePriorities()
+  const { data: statesConfig } = useStates()
+  const { data: me } = useMe()
+  const isAgent = me?.scopes?.includes('Agent') ?? false
   const filterState = useIncidentFilters()
   const { apiFilters, multiStates, isWaitingForMe, page, setPage } = filterState
+
+  // ── View mode (list / kanban) ─────────────────────────────────────────────────
+  const [viewMode, setViewMode] = useState<'list' | 'kanban'>(() =>
+    (localStorage.getItem('incidents_view') as 'list' | 'kanban') ?? 'list'
+  )
+  function switchView(mode: 'list' | 'kanban') {
+    setViewMode(mode)
+    localStorage.setItem('incidents_view', mode)
+  }
+
+  // Kanban fetches all active states, ignores state filter, uses large page
+  const kanbanFilters = useMemo(() => ({
+    ...apiFilters,
+    state: undefined,
+    page_size: 200,
+    page: 1,
+  }), [apiFilters])
   const [handoffOpen, setHandoffOpen] = useState(false)
   const [copied, setCopied] = useState(false)
   const handoffMut = useHandoffReport()
@@ -106,7 +130,17 @@ export default function IncidentsList() {
   }
 
   // ── Data ──────────────────────────────────────────────────────────────────────
-  const { data, isLoading, isError, error, refetch } = useIncidents(apiFilters, !isWaitingForMe)
+  const effectiveFilters = viewMode === 'kanban' ? kanbanFilters : apiFilters
+  const { data, isLoading, isError, error, refetch } = useIncidents(effectiveFilters, !isWaitingForMe)
+
+  async function handleKanbanTransition(id: string, toState: string, resCode?: string, resNotes?: string) {
+    await transitionIncident(id, {
+      to_state: toState as IncidentState,
+      resolution_code: resCode,
+      resolution_notes: resNotes,
+    })
+    queryClient.invalidateQueries({ queryKey: ['incidents'] })
+  }
 
   const escalationMutation = useMutation({
     mutationFn: () => runAutoEscalations(200),
@@ -160,6 +194,45 @@ export default function IncidentsList() {
         onNew={() => navigate('/incidents/new')}
         actions={(
           <>
+            {/* View toggle */}
+            {isAgent && (
+              <div
+                style={{
+                  display: 'inline-flex', borderRadius: 4, overflow: 'hidden',
+                  border: '1px solid #e2e8f0',
+                }}
+              >
+                <button
+                  onClick={() => switchView('list')}
+                  title="List view"
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 5,
+                    height: 28, padding: '0 9px', fontSize: 12, fontWeight: 500,
+                    border: 'none', cursor: 'pointer', transition: 'all 0.12s',
+                    background: viewMode === 'list' ? '#1e293b' : '#fff',
+                    color: viewMode === 'list' ? '#fff' : '#64748b',
+                  }}
+                >
+                  <List size={13} />
+                  List
+                </button>
+                <button
+                  onClick={() => switchView('kanban')}
+                  title="Board view"
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 5,
+                    height: 28, padding: '0 9px', fontSize: 12, fontWeight: 500,
+                    border: 'none', borderLeft: '1px solid #e2e8f0', cursor: 'pointer', transition: 'all 0.12s',
+                    background: viewMode === 'kanban' ? '#1e293b' : '#fff',
+                    color: viewMode === 'kanban' ? '#fff' : '#64748b',
+                  }}
+                >
+                  <Columns size={13} />
+                  Board
+                </button>
+              </div>
+            )}
+
             {aiEnabled && (
               <button
                 onClick={async () => {
@@ -321,27 +394,40 @@ export default function IncidentsList() {
         </div>
       )}
 
-      <div style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden' }}>
-        <IncidentTable
-          items={items}
-          priorities={priorities ?? []}
-          sort={filterState.sort}
-          order={filterState.order}
-          onSort={filterState.setSort}
-          isLoading={isLoading}
-          selectedIds={selectedIds}
-          onToggle={handleToggle}
-          onToggleAll={handleToggleAll}
-        />
-      </div>
-
-      {!multiStates && (
-        <Pagination
-          page={page}
-          total={data?.total ?? 0}
-          pageSize={25}
-          onPage={setPage}
-        />
+      {viewMode === 'kanban' ? (
+        <div style={{ flex: 1, overflow: 'hidden' }}>
+          <KanbanBoard
+            items={items}
+            priorities={priorities ?? []}
+            validTransitionsMap={statesConfig?.transitions ?? {}}
+            onTransition={handleKanbanTransition}
+            isAgent={isAgent}
+          />
+        </div>
+      ) : (
+        <>
+          <div style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden' }}>
+            <IncidentTable
+              items={items}
+              priorities={priorities ?? []}
+              sort={filterState.sort}
+              order={filterState.order}
+              onSort={filterState.setSort}
+              isLoading={isLoading}
+              selectedIds={selectedIds}
+              onToggle={handleToggle}
+              onToggleAll={handleToggleAll}
+            />
+          </div>
+          {!multiStates && (
+            <Pagination
+              page={page}
+              total={data?.total ?? 0}
+              pageSize={25}
+              onPage={setPage}
+            />
+          )}
+        </>
       )}
     </div>
 
