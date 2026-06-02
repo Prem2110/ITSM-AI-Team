@@ -1,0 +1,1 @@
+import{A as e}from"./vendor-M8VF-IpU.js";import{n as t}from"./auth-B9BRpojI.js";var n=e.create({baseURL:`/api`,headers:{"Content-Type":`application/json`}});n.interceptors.request.use(e=>{let n=t();return n&&(e.headers[`X-Fake-User`]=n),e});export{n as t};

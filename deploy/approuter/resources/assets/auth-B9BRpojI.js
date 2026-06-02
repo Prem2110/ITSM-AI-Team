@@ -1,0 +1,1 @@
+var e=`itsm_fake_user`;function t(){return localStorage.getItem(e)}function n(t){localStorage.setItem(e,t)}function r(){localStorage.removeItem(e)}function i(){return!!t()}export{n as i,t as n,i as r,r as t};

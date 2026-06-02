@@ -1,0 +1,1 @@
+import{J as e,y as t}from"./vendor-rw4Cb4J7.js";var n=e();function r({isLoading:e,disabled:r,children:i,...a}){return(0,n.jsxs)(`button`,{disabled:r||e,...a,children:[e&&(0,n.jsx)(t,{size:11,className:`animate-spin inline-block mr-1.5 flex-none`,style:{verticalAlign:`-0.1em`}}),i]})}export{r as t};
