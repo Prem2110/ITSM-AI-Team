@@ -4,9 +4,9 @@ import { useTranslation } from 'react-i18next'
 import { setFakeUser } from '@/api/auth'
 
 const SEEDED_USERS = [
-  { email: 'admin@acme.com',       label: 'Alex Admin (admin)'       },
-  { email: 'sarah.chen@acme.com',  label: 'Sarah Chen (agent)'       },
-  { email: 'james.park@acme.com',  label: 'James Park (requester)'   },
+  { email: 'karthik.byju@acme.com', label: 'Karthik Byju (admin)'   },
+  { email: 'prem@acme.com',         label: 'Prem (agent)'            },
+  { email: 'ashok@acme.com',        label: 'Ashok (requester)'       },
 ]
 
 export default function Login() {
