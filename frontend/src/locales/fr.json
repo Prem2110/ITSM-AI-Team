@@ -31,7 +31,7 @@
     "noIncidents": "Aucun incident dans les 30 derniers jours."
   },
   "incidents": {
-    "number": "Numéro",
+    "number": "ID Ticket",
     "priority": "Priorité",
     "state": "État",
     "shortDescription": "Description courte",

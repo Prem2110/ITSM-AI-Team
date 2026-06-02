@@ -1,3 +1,4 @@
+import { useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ChevronUp, ChevronDown, ChevronsUpDown } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
@@ -14,21 +15,34 @@ interface Props {
   order: 'asc' | 'desc'
   onSort: (col: string, order: 'asc' | 'desc') => void
   isLoading: boolean
+  selectedIds: Set<string>
+  onToggle: (id: string) => void
+  onToggleAll: () => void
 }
 
-export function IncidentTable({ items, priorities, sort, order, onSort, isLoading }: Props) {
+export function IncidentTable({ items, priorities, sort, order, onSort, isLoading, selectedIds, onToggle, onToggleAll }: Props) {
   const navigate = useNavigate()
   const { t } = useTranslation()
+  const allCheckboxRef = useRef<HTMLInputElement>(null)
+
+  const allSelected = items.length > 0 && selectedIds.size === items.length
+  const someSelected = selectedIds.size > 0 && !allSelected
+
+  useEffect(() => {
+    if (allCheckboxRef.current) {
+      allCheckboxRef.current.indeterminate = someSelected
+    }
+  }, [someSelected])
 
   const COL_HEADERS: { key: string; label: string; sortable: boolean; width: number | string; align?: string }[] = [
-    { key: 'checkbox',  label: '',                          sortable: false, width: 32 },
-    { key: 'number',    label: t('incidents.number'),       sortable: true,  width: 110 },
-    { key: 'priority',  label: t('incidents.priority'),     sortable: true,  width: 88 },
-    { key: 'state',     label: t('incidents.state'),        sortable: false, width: 108 },
+    { key: 'checkbox',  label: '',                              sortable: false, width: 32 },
+    { key: 'number',    label: t('incidents.number'),           sortable: true,  width: 130 },
+    { key: 'priority',  label: t('incidents.priority'),         sortable: true,  width: 88 },
+    { key: 'state',     label: t('incidents.state'),            sortable: false, width: 108 },
     { key: 'title',     label: t('incidents.shortDescription'), sortable: false, width: 'auto' },
-    { key: 'category',  label: t('incidents.category'),     sortable: false, width: 140 },
-    { key: 'assignee',  label: t('incidents.assignedTo'),   sortable: false, width: 150 },
-    { key: 'updated',   label: t('incidents.updated'),      sortable: true,  width: 90, align: 'right' },
+    { key: 'category',  label: t('incidents.category'),         sortable: false, width: 140 },
+    { key: 'assignee',  label: t('incidents.assignedTo'),       sortable: false, width: 150 },
+    { key: 'updated',   label: t('incidents.updated'),          sortable: true,  width: 90, align: 'right' },
   ]
 
   function handleSort(colKey: string) {
@@ -93,7 +107,18 @@ export function IncidentTable({ items, priorities, sort, order, onSort, isLoadin
                 }}
                 onClick={() => col.sortable && handleSort(col.key === 'updated' ? 'updated_at' : col.key === 'number' ? 'number' : col.key)}
               >
-                {col.key === 'checkbox' ? null : (
+                {col.key === 'checkbox' ? (
+                  <input
+                    ref={allCheckboxRef}
+                    type="checkbox"
+                    checked={allSelected}
+                    onChange={onToggleAll}
+                    disabled={items.length === 0}
+                    className="w-3 h-3 border-surface-300 text-surface-600"
+                    style={{ borderRadius: 2, cursor: items.length === 0 ? 'default' : 'pointer' }}
+                    onClick={e => e.stopPropagation()}
+                  />
+                ) : (
                   <span className="inline-flex items-center gap-1">
                     {col.label}
                     {col.sortable && (
@@ -115,71 +140,78 @@ export function IncidentTable({ items, priorities, sort, order, onSort, isLoadin
               </td>
             </tr>
           )}
-          {items.map((inc, i) => (
-            <tr
-              key={inc.id}
-              onClick={() => navigate(`/incidents/${inc.id}`)}
-              style={{
-                height: 32,
-                borderBottom: '1px solid var(--border-subtle)',
-                cursor: 'pointer',
-                animationDelay: `${Math.min(Math.round(Math.sqrt(i) * 40), 220)}ms`,
-              }}
-              className="hover:bg-surface-50 group/row animate-row-enter"
-            >
-              {/* Checkbox */}
-              <td
-                style={{ paddingLeft: 8, paddingRight: 0, width: 32 }}
-                onClick={e => e.stopPropagation()}
+          {items.map((inc, i) => {
+            const isSelected = selectedIds.has(inc.id)
+            return (
+              <tr
+                key={inc.id}
+                onClick={() => navigate(`/incidents/${inc.id}`)}
+                style={{
+                  height: 32,
+                  borderBottom: '1px solid var(--border-subtle)',
+                  cursor: 'pointer',
+                  animationDelay: `${Math.min(Math.round(Math.sqrt(i) * 40), 220)}ms`,
+                  background: isSelected ? 'rgba(99,102,241,0.06)' : undefined,
+                }}
+                className="hover:bg-surface-50 group/row animate-row-enter"
               >
-                <input
-                  type="checkbox"
-                  className="w-3 h-3 border-surface-300 text-surface-600 rounded-none"
-                  style={{ borderRadius: 2 }}
-                />
-              </td>
+                {/* Checkbox */}
+                <td
+                  style={{ paddingLeft: 8, paddingRight: 0, width: 32 }}
+                  onClick={e => { e.stopPropagation(); onToggle(inc.id) }}
+                >
+                  <input
+                    type="checkbox"
+                    checked={isSelected}
+                    onChange={() => onToggle(inc.id)}
+                    className="w-3 h-3 border-surface-300 text-surface-600"
+                    style={{ borderRadius: 2, cursor: 'pointer' }}
+                    onClick={e => e.stopPropagation()}
+                  />
+                </td>
 
-              {/* Number */}
-              <td className="px-2 truncate" style={{ fontFamily: 'ui-monospace, monospace', fontSize: 12, color: 'var(--text-secondary)', fontWeight: 500 }}>
-                {inc.number}
-              </td>
+                {/* Ticket ID */}
+                <td className="px-2" style={{ fontFamily: 'ui-monospace, monospace', fontSize: 12, color: 'var(--text-secondary)', fontWeight: 500, whiteSpace: 'nowrap' }}>
+                  {inc.number}
+                </td>
 
-              {/* Priority */}
-              <td className="px-2">
-                <PriorityBadge priority={inc.priority as 1|2|3|4} priorities={priorities} />
-              </td>
+                {/* Priority */}
+                <td className="px-2">
+                  <PriorityBadge priority={inc.priority as 1|2|3|4} priorities={priorities} />
+                </td>
 
-              {/* State */}
-              <td className="px-2">
-                <StateBadge state={inc.state} />
-              </td>
+                {/* State */}
+                <td className="px-2">
+                  <StateBadge state={inc.state} />
+                </td>
 
-              {/* Title */}
-              <td className="px-2" style={{ color: 'var(--text-primary)', overflow: 'hidden' }}>
-                <span style={{ display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                  {inc.sla_breached && (
-                    <span style={{ color: '#b91c1c', fontWeight: 700, marginRight: 4, fontSize: 11 }}>!</span>
-                  )}
-                  {inc.title}
-                </span>
-              </td>
+                {/* Title */}
+                <td className="px-2" style={{ color: 'var(--text-primary)', overflow: 'hidden' }}>
+                  <span style={{ display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {inc.sla_breached && (
+                      <span style={{ color: '#b91c1c', fontWeight: 700, marginRight: 4, fontSize: 11 }}>!</span>
+                    )}
+                    {inc.title}
+                  </span>
+                </td>
 
-              {/* Category */}
-              <td className="px-2 truncate" style={{ color: 'var(--text-secondary)', fontSize: 12 }}>
-                {inc.category}
-              </td>
+                {/* Category */}
+                <td className="px-2 truncate" style={{ color: 'var(--text-secondary)', fontSize: 12 }}>
+                  {inc.category}
+                </td>
 
-              {/* Assignee */}
-              <td className="px-2 truncate" style={{ color: inc.assignee_name ? 'var(--text-secondary)' : 'var(--text-subtle)', fontSize: 12 }}>
-                {inc.assignee_name ?? '—'}
-              </td>
+                {/* Assignee */}
+                <td className="px-2 truncate" style={{ color: inc.assignee_name ? 'var(--text-secondary)' : 'var(--text-subtle)', fontSize: 12 }}>
+                  {inc.assignee_name ?? '—'}
+                </td>
 
-              {/* Updated */}
-              <td className="px-2" style={{ color: 'var(--text-subtle)', fontSize: 11, textAlign: 'right', whiteSpace: 'nowrap' }}>
-                {relativeTime(inc.updated_at)}
-              </td>
-            </tr>
-          ))}
+                {/* Updated */}
+                <td className="px-2" style={{ color: 'var(--text-subtle)', fontSize: 11, textAlign: 'right', whiteSpace: 'nowrap' }}>
+                  {relativeTime(inc.updated_at)}
+                </td>
+              </tr>
+            )
+          })}
         </tbody>
       </table>
 

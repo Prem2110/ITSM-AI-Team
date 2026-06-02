@@ -31,7 +31,7 @@
     "noIncidents": "过去30天内无事件。"
   },
   "incidents": {
-    "number": "编号",
+    "number": "工单ID",
     "priority": "优先级",
     "state": "状态",
     "shortDescription": "简短描述",

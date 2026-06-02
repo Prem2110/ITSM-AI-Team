@@ -1040,9 +1040,10 @@ interface Props {
   open: boolean
   defaultTab?: SettingsTab
   onClose: () => void
+  exitTarget?: { x: number; y: number } | null
 }
 
-export function SettingsModal({ open, defaultTab = 'general', onClose }: Props) {
+export function SettingsModal({ open, defaultTab = 'general', onClose, exitTarget }: Props) {
   const [activeTab, setActiveTab] = useState<SettingsTab>(defaultTab)
 
   useEffect(() => {
@@ -1076,23 +1077,32 @@ export function SettingsModal({ open, defaultTab = 'general', onClose }: Props) 
     >
       <motion.div
         onClick={e => e.stopPropagation()}
-        initial={{ opacity: 0.6, scaleX: 0.06, scaleY: 0.35, y: '38vh' }}
+        initial={{
+          opacity: 0.6, scaleX: 0.06, scaleY: 0.35, y: '38vh',
+          clipPath: 'polygon(0% 0%, 100% 0%, 100% 100%, 0% 100%)',
+        }}
         animate={{
           opacity: 1, scaleX: 1, scaleY: 1, y: 0,
+          clipPath: 'polygon(0% 0%, 100% 0%, 100% 100%, 0% 100%)',
           transition: {
             opacity: { duration: 0.22 },
-            scaleY: { duration: 0.48, ease: [0.22, 1, 0.36, 1] },
-            scaleX: { duration: 0.38, delay: 0.12, ease: [0.22, 1, 0.36, 1] },
-            y:      { duration: 0.48, ease: [0.22, 1, 0.36, 1] },
+            scaleY:  { duration: 0.48, ease: [0.22, 1, 0.36, 1] },
+            scaleX:  { duration: 0.38, delay: 0.12, ease: [0.22, 1, 0.36, 1] },
+            y:       { duration: 0.48, ease: [0.22, 1, 0.36, 1] },
           },
         }}
         exit={{
-          opacity: 0, scaleX: 0.015, scaleY: 0, y: 0,
+          opacity:  0,
+          clipPath: 'polygon(0% 0%, 100% 0%, 50% 100%, 50% 100%)',
+          scaleY:   0.08,
+          x: exitTarget?.x ?? 0,
+          y: exitTarget?.y ?? 0,
           transition: {
-            opacity: { duration: 0.3, delay: 0.14 },
-            scaleX: { duration: 0.22, ease: [0.4, 0, 1, 1] },
-            scaleY: { duration: 0.22, delay: 0.14, ease: [0.4, 0, 1, 1] },
-            y:      { duration: 0 },
+            clipPath: { duration: 0.20, ease: [0.5, 0, 1, 1] },
+            scaleY:   { duration: 0.38, ease: [0.5, 0, 0.88, 1] },
+            x:        { duration: 0.42, ease: [0.5, 0, 0.82, 1] },
+            y:        { duration: 0.42, ease: [0.5, 0, 0.82, 1] },
+            opacity:  { duration: 0.14, delay: 0.30 },
           },
         }}
         style={{

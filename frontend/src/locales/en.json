@@ -31,7 +31,7 @@
     "noIncidents": "No incidents in the last 30 days."
   },
   "incidents": {
-    "number": "Number",
+    "number": "Ticket ID",
     "priority": "Priority",
     "state": "State",
     "shortDescription": "Short Description",

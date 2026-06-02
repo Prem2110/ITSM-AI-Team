@@ -26,16 +26,18 @@ import { usePriorities } from '@/hooks/useConfig'
 import { useIncidentFilters } from '@/hooks/useIncidentFilters'
 import { useHandoffReport } from '@/hooks/useAI'
 import { useAIStatus } from '@/hooks/useAI'
+import { useUsers } from '@/hooks/useUsers'
 import { Toolbar } from '@/components/Toolbar'
 import { FilterBar } from '@/components/FilterBar'
 import { IncidentTable } from '@/components/IncidentTable'
 import { Pagination } from '@/components/Pagination'
-import { exportIncidentsCsv, runAutoEscalations } from '@/api/incidents'
+import { exportIncidentsCsv, runAutoEscalations, patchIncident, transitionIncident } from '@/api/incidents'
 
 export default function IncidentsList() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const searchInputRef = useRef<HTMLInputElement>(null)
+  const assignDropdownRef = useRef<HTMLDivElement>(null)
   const { data: priorities } = usePriorities()
   const filterState = useIncidentFilters()
   const { apiFilters, multiStates, isWaitingForMe, page, setPage } = filterState
@@ -45,6 +47,65 @@ export default function IncidentsList() {
   const { data: aiStatus } = useAIStatus()
   const aiEnabled = !!(aiStatus?.ai_enabled && aiStatus?.has_key)
 
+  // ── Bulk selection ────────────────────────────────────────────────────────────
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  const [assignOpen, setAssignOpen] = useState(false)
+  const [bulkPending, setBulkPending] = useState(false)
+
+  const { data: agents } = useUsers('agent')
+
+  // Reset selection when filters or page change
+  useEffect(() => { setSelectedIds(new Set()) }, [page, apiFilters])
+
+  // Close assign dropdown on outside click
+  useEffect(() => {
+    if (!assignOpen) return
+    function handler(e: MouseEvent) {
+      if (assignDropdownRef.current && !assignDropdownRef.current.contains(e.target as Node)) {
+        setAssignOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [assignOpen])
+
+  function handleToggle(id: string) {
+    setSelectedIds(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  function handleToggleAll() {
+    if (selectedIds.size === items.length) {
+      setSelectedIds(new Set())
+    } else {
+      setSelectedIds(new Set(items.map(i => i.id)))
+    }
+  }
+
+  async function handleBulkAssign(assigneeId: string | null) {
+    setBulkPending(true)
+    setAssignOpen(false)
+    const ids = Array.from(selectedIds)
+    await Promise.allSettled(ids.map(id => patchIncident(id, { assignee_id: assigneeId })))
+    await queryClient.invalidateQueries({ queryKey: ['incidents'] })
+    setSelectedIds(new Set())
+    setBulkPending(false)
+  }
+
+  async function handleBulkClose() {
+    setBulkPending(true)
+    const closeable = items.filter(i => selectedIds.has(i.id) && i.state === 'resolved')
+    await Promise.allSettled(closeable.map(i => transitionIncident(i.id, { to_state: 'closed' })))
+    await queryClient.invalidateQueries({ queryKey: ['incidents'] })
+    setSelectedIds(new Set())
+    setBulkPending(false)
+  }
+
+  // ── Data ──────────────────────────────────────────────────────────────────────
   const { data, isLoading, isError, error, refetch } = useIncidents(apiFilters, !isWaitingForMe)
 
   const escalationMutation = useMutation({
@@ -87,6 +148,8 @@ export default function IncidentsList() {
     ? allItems.filter(i => multiStates.includes(i.state))
     : allItems
   const total = multiStates ? items.length : (data?.total ?? 0)
+
+  const closeableCount = items.filter(i => selectedIds.has(i.id) && i.state === 'resolved').length
 
   return (
     <>
@@ -138,6 +201,117 @@ export default function IncidentsList() {
         searchInputRef={searchInputRef as React.RefObject<HTMLInputElement>}
       />
 
+      {/* ── Bulk action bar ──────────────────────────────────────────────────── */}
+      {selectedIds.size > 0 && (
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: 10, height: 36, flexShrink: 0,
+          padding: '0 12px', borderBottom: '1px solid #c7d2fe', background: '#eef2ff',
+        }}>
+          {/* Count */}
+          <span style={{ fontSize: 12, fontWeight: 600, color: '#4338ca', whiteSpace: 'nowrap' }}>
+            {selectedIds.size} selected
+          </span>
+
+          <span style={{ color: '#c7d2fe', fontSize: 14 }}>|</span>
+
+          {/* Assign to dropdown */}
+          <div ref={assignDropdownRef} style={{ position: 'relative' }}>
+            <button
+              onClick={() => setAssignOpen(v => !v)}
+              disabled={bulkPending}
+              style={{
+                height: 24, padding: '0 8px', borderRadius: 3, fontSize: 11, fontWeight: 500,
+                border: '1px solid #a5b4fc', background: assignOpen ? '#e0e7ff' : '#fff',
+                color: '#4338ca', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 4,
+                opacity: bulkPending ? 0.5 : 1,
+              }}
+            >
+              Assign to
+              <svg width="9" height="9" viewBox="0 0 10 10" fill="currentColor">
+                <path d="M5 7L1 3h8z"/>
+              </svg>
+            </button>
+            {assignOpen && (
+              <div style={{
+                position: 'absolute', top: 'calc(100% + 4px)', left: 0, zIndex: 200,
+                background: '#fff', border: '1px solid #e2e8f0', borderRadius: 4,
+                boxShadow: '0 4px 16px rgba(0,0,0,0.12)', minWidth: 180, overflow: 'hidden',
+              }}>
+                {(agents ?? []).map(agent => (
+                  <button
+                    key={agent.id}
+                    onClick={() => handleBulkAssign(agent.id)}
+                    style={{
+                      display: 'block', width: '100%', textAlign: 'left',
+                      padding: '6px 10px', fontSize: 12, color: '#1e293b',
+                      background: 'none', border: 'none', cursor: 'pointer',
+                      borderBottom: '1px solid #f1f5f9',
+                    }}
+                    onMouseEnter={e => (e.currentTarget.style.background = '#f8fafc')}
+                    onMouseLeave={e => (e.currentTarget.style.background = 'none')}
+                  >
+                    <div style={{ fontWeight: 500 }}>{agent.name}</div>
+                    <div style={{ fontSize: 10, color: '#94a3b8' }}>{agent.email}</div>
+                  </button>
+                ))}
+                {(agents ?? []).length === 0 && (
+                  <div style={{ padding: '8px 10px', fontSize: 12, color: '#94a3b8' }}>No agents found</div>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Unassign */}
+          <button
+            onClick={() => handleBulkAssign(null)}
+            disabled={bulkPending}
+            style={{
+              height: 24, padding: '0 8px', borderRadius: 3, fontSize: 11, fontWeight: 500,
+              border: '1px solid #cbd5e1', background: '#fff', color: '#475569',
+              cursor: 'pointer', opacity: bulkPending ? 0.5 : 1,
+            }}
+          >
+            Unassign
+          </button>
+
+          <span style={{ color: '#c7d2fe', fontSize: 14 }}>|</span>
+
+          {/* Close resolved */}
+          <button
+            onClick={handleBulkClose}
+            disabled={bulkPending || closeableCount === 0}
+            title={closeableCount === 0
+              ? 'None of the selected incidents are in resolved state'
+              : `Close ${closeableCount} resolved incident${closeableCount !== 1 ? 's' : ''}`}
+            style={{
+              height: 24, padding: '0 8px', borderRadius: 3, fontSize: 11, fontWeight: 500,
+              border: '1px solid #fcd34d', background: '#fffbeb', color: '#92400e',
+              cursor: closeableCount === 0 ? 'not-allowed' : 'pointer',
+              opacity: bulkPending || closeableCount === 0 ? 0.45 : 1,
+            }}
+          >
+            Close resolved{closeableCount > 0 ? ` (${closeableCount})` : ''}
+          </button>
+
+          {bulkPending && (
+            <span style={{ fontSize: 11, color: '#6366f1' }}>Applying…</span>
+          )}
+
+          {/* Clear */}
+          <button
+            onClick={() => setSelectedIds(new Set())}
+            disabled={bulkPending}
+            style={{
+              marginLeft: 'auto', fontSize: 11, color: '#818cf8', background: 'none',
+              border: 'none', cursor: 'pointer', padding: '0 4px', fontWeight: 500,
+              opacity: bulkPending ? 0.5 : 1,
+            }}
+          >
+            Clear selection
+          </button>
+        </div>
+      )}
+
       {isError && (
         <div className="flex-none flex items-center gap-2 px-3 py-1.5 border-b border-red-200 bg-red-50 text-xs text-red-700">
           <span>{parseIncidentError(error)}</span>
@@ -155,6 +329,9 @@ export default function IncidentsList() {
           order={filterState.order}
           onSort={filterState.setSort}
           isLoading={isLoading}
+          selectedIds={selectedIds}
+          onToggle={handleToggle}
+          onToggleAll={handleToggleAll}
         />
       </div>
 

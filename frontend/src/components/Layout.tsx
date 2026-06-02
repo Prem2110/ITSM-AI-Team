@@ -90,6 +90,20 @@ export default function Layout() {
   const email = getFakeUser() ?? ''
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [settingsTab, setSettingsTab]   = useState<SettingsTab>('general')
+  const [settingsExitTarget, setSettingsExitTarget] = useState<{ x: number; y: number } | null>(null)
+  const settingsBtnRef = useRef<HTMLButtonElement>(null)
+
+  function handleCloseSettings() {
+    const btn = settingsBtnRef.current
+    if (btn) {
+      const rect = btn.getBoundingClientRect()
+      setSettingsExitTarget({
+        x: rect.left + rect.width  / 2 - window.innerWidth  / 2,
+        y: rect.top  + rect.height / 2 - window.innerHeight / 2,
+      })
+    }
+    setSettingsOpen(false)
+  }
 
   // Push/Pop direction tracking
   const prevPathRef = useRef(location.pathname)
@@ -225,6 +239,7 @@ export default function Layout() {
             {/* Bottom: Settings */}
             <div className="border-t border-surface-200 pt-1 mt-2">
               <button
+                ref={settingsBtnRef}
                 onClick={() => openSettings('general')}
                 className={`flex items-center gap-2 px-3 text-xs transition-colors w-full text-left ${
                   settingsOpen && settingsTab === 'general'
@@ -262,7 +277,8 @@ export default function Layout() {
       <SettingsModal
         open={settingsOpen}
         defaultTab={settingsTab}
-        onClose={() => setSettingsOpen(false)}
+        onClose={handleCloseSettings}
+        exitTarget={settingsExitTarget}
       />
     </div>
   )
