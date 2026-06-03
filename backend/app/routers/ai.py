@@ -27,7 +27,7 @@ def _build_ai_service(settings) -> AIService | None:
         return None
     return AIService(
         api_key=settings.openrouter_api_key,
-        model=settings.openrouter_model or "mistralai/mistral-7b-instruct:free",
+        model=settings.openrouter_model or "openrouter/free",
     )
 
 
@@ -40,7 +40,7 @@ async def get_ai_status(
     settings = await repo.get()
     return {
         "ai_enabled": bool(settings and settings.ai_enabled),
-        "model": (settings.openrouter_model or "mistralai/mistral-7b-instruct:free") if settings else "mistralai/mistral-7b-instruct:free",
+        "model": (settings.openrouter_model or "openrouter/free") if settings else "openrouter/free",
         "has_key": bool(settings and settings.openrouter_api_key),
     }
 
@@ -222,7 +222,7 @@ async def test_connection(
         raise HTTPException(status_code=400, detail="No API key configured")
     svc = AIService(
         api_key=settings.openrouter_api_key,
-        model=settings.openrouter_model or "mistralai/mistral-7b-instruct:free",
+        model=settings.openrouter_model or "openrouter/free",
     )
     start = time.monotonic()
     try:

@@ -3,7 +3,7 @@ import json
 import httpx
 from ..config import app_config
 
-_BASE = "https://openrouter.ai/v1"
+_BASE = "https://openrouter.ai/api/v1"
 _HEADERS_EXTRA = {
     "HTTP-Referer": "https://github.com/ITSM",
     "X-Title": "ITSM Predictive Analytics",
@@ -11,7 +11,7 @@ _HEADERS_EXTRA = {
 
 
 class AIService:
-    def __init__(self, api_key: str, model: str = "mistralai/mistral-7b-instruct:free") -> None:
+    def __init__(self, api_key: str, model: str = "openrouter/free") -> None:
         self.api_key = api_key
         self.model = model
 
