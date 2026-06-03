@@ -14,7 +14,7 @@ from ..schemas.incident_event import IncidentEventCreate
 from ..schemas.user import UserResponse
 from ..schemas.incident_event import IncidentEventResponse
 from ..state_machine import validate_transition
-from ..utils import utcnow
+from ..utils import utcnow, naive_utc
 from ..auth.context import CallerContext
 
 logger = logging.getLogger(__name__)
@@ -184,8 +184,9 @@ class IncidentService:
         update_fields: dict = {"state": req.to_state, "updated_at": now}
         if from_state == "on_hold" and req.to_state != "on_hold":
             if incident.sla_paused_at is not None and incident.sla_resolution_due is not None:
+                # normalize to tz-naive — HANA returns naive datetimes, utcnow() is tz-aware
                 update_fields["sla_resolution_due"] = (
-                    incident.sla_resolution_due + (now - incident.sla_paused_at)
+                    naive_utc(incident.sla_resolution_due) + (naive_utc(now) - naive_utc(incident.sla_paused_at))
                 )
             update_fields["sla_paused_at"] = None
         elif from_state != "on_hold" and req.to_state == "on_hold":

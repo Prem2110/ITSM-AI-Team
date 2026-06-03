@@ -15,7 +15,7 @@ from ..repositories.app_settings_repository import AppSettingsRepository
 from ..repositories.user_repository import UserRepository
 from ..services.ai_service import AIService
 from ..config import app_config
-from ..utils import utcnow
+from ..utils import utcnow, naive_utc
 
 router = APIRouter(prefix="/api/ai", tags=["ai"])
 
@@ -71,16 +71,14 @@ async def get_sla_risk(
     repo = IncidentRepository(session)
     await repo.mark_overdue_sla_breached()
     incidents = await repo.get_sla_risk_incidents()
-    now = utcnow().replace(tzinfo=None)
+    now = naive_utc(utcnow())
     result = []
     for inc in incidents:
         if inc.sla_breached:
             risk = 1.0
         elif inc.sla_resolution_due:
-            due = inc.sla_resolution_due.replace(tzinfo=None) if inc.sla_resolution_due.tzinfo else inc.sla_resolution_due
-            created = inc.created_at.replace(tzinfo=None) if inc.created_at.tzinfo else inc.created_at
-            total = (due - created).total_seconds()
-            elapsed = (now - created).total_seconds()
+            total = (naive_utc(inc.sla_resolution_due) - naive_utc(inc.created_at)).total_seconds()
+            elapsed = (now - naive_utc(inc.created_at)).total_seconds()
             risk = min(elapsed / total, 1.0) if total > 0 else 0.0
         else:
             risk = 0.0
@@ -107,16 +105,13 @@ async def get_anomalies(
 ) -> list:
     repo = IncidentRepository(session)
     incidents = await repo.get_recent_incidents_for_analytics(hours=168)
-    now = utcnow()
-    # strip tz for comparison — HANA returns naive datetimes
-    two_hours_ago = (now - timedelta(hours=2)).replace(tzinfo=None)
+    two_hours_ago = naive_utc(utcnow() - timedelta(hours=2))
 
     recent: dict[str, int] = defaultdict(int)
     historical: dict[str, int] = defaultdict(int)
     for inc in incidents:
         historical[inc.category] += 1
-        cmp = inc.created_at.replace(tzinfo=None) if inc.created_at.tzinfo else inc.created_at
-        if cmp >= two_hours_ago:
+        if naive_utc(inc.created_at) >= two_hours_ago:
             recent[inc.category] += 1
 
     anomalies = []
@@ -142,14 +137,14 @@ async def get_forecast(
 ) -> dict:
     repo = IncidentRepository(session)
     incidents = await repo.get_recent_incidents_for_analytics(hours=24 * 21)
-    now = utcnow().replace(tzinfo=None)
+    now = naive_utc(utcnow())
+    inc_dates = [naive_utc(inc.created_at) for inc in incidents]
 
     dates, counts = [], []
     for i in range(13, -1, -1):
         day_end = now - timedelta(days=i)
         day_start = now - timedelta(days=i + 1)
-        dates.append((now - timedelta(days=i)).strftime("%Y-%m-%d"))
-        inc_dates = [inc.created_at.replace(tzinfo=None) if inc.created_at.tzinfo else inc.created_at for inc in incidents]
+        dates.append(day_end.strftime("%Y-%m-%d"))
         counts.append(sum(1 for d in inc_dates if day_start <= d < day_end))
 
     n = len(counts)
@@ -464,14 +459,12 @@ async def ops_summary(
     slope = round(num / den, 3) if den else 0
     trend = "increasing" if slope > 0.1 else "decreasing" if slope < -0.1 else "stable"
 
-    now = utcnow()
-    two_hours_ago = (now - timedelta(hours=2)).replace(tzinfo=None)
+    two_hours_ago = naive_utc(utcnow() - timedelta(hours=2))
     recent_cat: dict[str, int] = defaultdict(int)
     hist_cat: dict[str, int] = defaultdict(int)
     for inc in recent_incs:
         hist_cat[inc.category] += 1
-        cmp = inc.created_at.replace(tzinfo=None) if inc.created_at.tzinfo else inc.created_at
-        if cmp >= two_hours_ago:
+        if naive_utc(inc.created_at) >= two_hours_ago:
             recent_cat[inc.category] += 1
 
     anomaly_strs = []
