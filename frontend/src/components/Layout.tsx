@@ -24,6 +24,7 @@ import { useIsFetching } from '@tanstack/react-query'
 import { useSetupStatus } from '@/hooks/useSetupStatus'
 import { useTranslation } from 'react-i18next'
 import { SettingsModal, type SettingsTab } from '@/components/SettingsModal'
+import { useAppSettings } from '@/hooks/useAppSettings'
 
 function LoadingBar() {
   const isFetching = useIsFetching()
@@ -180,6 +181,7 @@ export default function Layout() {
   }, [location.pathname])
   useSetupStatus()
   const { t } = useTranslation()
+  const { data: appSettings } = useAppSettings()
 
   function openSettings(tab: SettingsTab) {
     setSettingsTab(tab)
@@ -237,7 +239,7 @@ export default function Layout() {
       >
         <Link to="/incidents" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 8 }}>
           <img src={sierraLogo} alt="Sierra Digital" style={{ height: 24, width: 'auto', borderRadius: 3 }} />
-          <span style={{ fontSize: 13, fontWeight: 600, color: '#1e293b', letterSpacing: '-0.01em' }}>Sierra Digital ITSM</span>
+          <span style={{ fontSize: 13, fontWeight: 600, color: '#1e293b', letterSpacing: '-0.01em' }}>{appSettings?.company_name ?? 'Sierra Digital ITSM'}</span>
         </Link>
         <div className="flex items-center gap-3">
           {/* Search Trigger Button */}
