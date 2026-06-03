@@ -4,7 +4,7 @@ import i18n from '@/i18n'
 export type Theme = 'light' | 'dark' | 'system'
 export type FontSize = 'compact' | 'default' | 'comfortable' | 'large'
 export type FontFamily = 'system' | 'google-sans' | 'ibm-plex' | 'dm-sans'
-export type Language = 'en' | 'fr' | 'de' | 'es' | 'zh'
+export type Language = 'en' | 'fr' | 'de' | 'es' | 'zh' | 'hi'
 
 const FONT_ZOOM: Record<FontSize, string> = {
   compact: '0.875',

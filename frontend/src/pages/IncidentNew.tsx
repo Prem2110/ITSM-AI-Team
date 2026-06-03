@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { ChevronLeft } from 'lucide-react'
 import { motion } from 'framer-motion'
+import { useTranslation } from 'react-i18next'
 import { useMe, usePriorities, useCategories, useUsers } from '@/hooks'
 import { useSources } from '@/hooks/useConfig'
 import { createIncident } from '@/api/incidents'
@@ -12,6 +13,7 @@ import type { IncidentCreateRequest } from '@/types'
 export default function IncidentNew() {
   const navigate = useNavigate()
   const qc = useQueryClient()
+  const { t } = useTranslation()
 
   const { data: me } = useMe()
   const { data: priorities } = usePriorities()
@@ -81,10 +83,10 @@ export default function IncidentNew() {
           className="flex items-center gap-1 text-xs text-surface-500 hover:text-surface-700 transition-colors"
         >
           <ChevronLeft size={14} />
-          Incidents
+          {t('incidentNew.back')}
         </button>
         <span className="text-surface-300">|</span>
-        <span className="text-sm font-semibold text-surface-900">New Incident</span>
+        <span className="text-sm font-semibold text-surface-900">{t('incidentNew.title')}</span>
       </div>
 
       {/* Form */}
@@ -93,7 +95,7 @@ export default function IncidentNew() {
           {/* Title */}
           <div className="mb-4">
             <label className="text-2xs font-semibold text-surface-400 uppercase tracking-wider mb-1 block">
-              Title <span className="text-red-400">*</span>
+              {t('incidentNew.titleLabel')} <span className="text-red-400">*</span>
             </label>
             {/* Shake on error — macOS wrong-password */}
             <motion.div
@@ -104,7 +106,7 @@ export default function IncidentNew() {
                 type="text"
                 value={title}
                 onChange={e => setTitle(e.target.value)}
-                placeholder="Brief description of the issue…"
+                placeholder={t('incidentNew.titlePlaceholder')}
                 className="w-full text-xs border border-surface-200 bg-white px-2 py-1.5 focus:outline-none focus:border-surface-500"
                 style={{ borderRadius: 2, borderColor: shakeFields.includes('title') ? '#ef4444' : undefined }}
                 autoFocus
@@ -115,13 +117,13 @@ export default function IncidentNew() {
           {/* Description */}
           <div className="mb-4">
             <label className="text-2xs font-semibold text-surface-400 uppercase tracking-wider mb-1 block">
-              Description
+              {t('incidentNew.descriptionLabel')}
             </label>
             <textarea
               value={description}
               onChange={e => setDescription(e.target.value)}
               rows={5}
-              placeholder="Detailed description, steps to reproduce, impact…"
+              placeholder={t('incidentNew.descriptionPlaceholder')}
               className="w-full text-xs border border-surface-200 bg-white px-2 py-1.5 focus:outline-none focus:border-surface-500 resize-none"
               style={{ borderRadius: 2 }}
             />
@@ -131,7 +133,7 @@ export default function IncidentNew() {
           <div className="grid grid-cols-2 gap-4 mb-4">
             <div>
               <label className="text-2xs font-semibold text-surface-400 uppercase tracking-wider mb-1 block">
-                Priority
+                {t('incidentNew.priorityLabel')}
               </label>
               <select
                 value={priority}
@@ -146,7 +148,7 @@ export default function IncidentNew() {
             </div>
             <div>
               <label className="text-2xs font-semibold text-surface-400 uppercase tracking-wider mb-1 block">
-                Category <span className="text-red-400">*</span>
+                {t('incidentNew.categoryLabel')} <span className="text-red-400">*</span>
               </label>
               <motion.div
                 animate={shakeFields.includes('category') ? { x: [0, -8, 8, -6, 6, -3, 3, 0] } : {}}
@@ -158,7 +160,7 @@ export default function IncidentNew() {
                   className="w-full text-xs border border-surface-200 bg-white px-2 py-1.5 focus:outline-none focus:border-surface-500"
                   style={{ borderRadius: 2, borderColor: shakeFields.includes('category') ? '#ef4444' : undefined }}
                 >
-                  <option value="">Select category…</option>
+                  <option value="">{t('incidentNew.categoryPlaceholder')}</option>
                   {categories?.map(c => <option key={c} value={c}>{c}</option>)}
                 </select>
               </motion.div>
@@ -168,7 +170,7 @@ export default function IncidentNew() {
           {/* Source */}
           <div className="mb-4" style={{ maxWidth: 300 }}>
             <label className="text-2xs font-semibold text-surface-400 uppercase tracking-wider mb-1 block">
-              Source
+              {t('incidentNew.sourceLabel')}
             </label>
             <select
               value={source}
@@ -187,7 +189,7 @@ export default function IncidentNew() {
             <div className="grid grid-cols-2 gap-4 mb-4">
               <div>
                 <label className="text-2xs font-semibold text-surface-400 uppercase tracking-wider mb-1 block">
-                  Assign To
+                  {t('incidentNew.assignToLabel')}
                 </label>
                 <select
                   value={assigneeId}
@@ -195,7 +197,7 @@ export default function IncidentNew() {
                   className="w-full text-xs border border-surface-200 bg-white px-2 py-1.5 focus:outline-none focus:border-surface-500"
                   style={{ borderRadius: 2 }}
                 >
-                  <option value="">Unassigned</option>
+                  <option value="">{t('incidentNew.unassigned')}</option>
                   {agentUsers.map(u => (
                     <option key={u.id} value={u.id}>{u.name}</option>
                   ))}
@@ -203,7 +205,7 @@ export default function IncidentNew() {
               </div>
               <div>
                 <label className="text-2xs font-semibold text-surface-400 uppercase tracking-wider mb-1 block">
-                  Requester
+                  {t('incidentNew.requesterLabel')}
                 </label>
                 <select
                   value={requesterId}
@@ -229,7 +231,7 @@ export default function IncidentNew() {
               {String(
                 (createMut.error as any)?.response?.data?.detail ??
                 (createMut.error as Error)?.message ??
-                'Failed to create incident'
+                t('incidentNew.createError')
               )}
             </div>
           )}
@@ -243,14 +245,14 @@ export default function IncidentNew() {
               className="text-xs font-medium px-4 py-1.5 bg-surface-800 text-white hover:bg-surface-700 disabled:opacity-40 transition-colors"
               style={{ borderRadius: 2 }}
             >
-              {createMut.isPending ? 'Creating…' : 'Create Incident'}
+              {createMut.isPending ? t('incidentNew.creating') : t('incidentNew.create')}
             </SpinButton>
             <button
               type="button"
               onClick={() => navigate('/incidents')}
               className="text-xs text-surface-500 hover:text-surface-700"
             >
-              Cancel
+              {t('incidentNew.cancel')}
             </button>
           </div>
         </form>

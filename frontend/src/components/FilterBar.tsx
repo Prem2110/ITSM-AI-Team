@@ -1,27 +1,13 @@
 import { useRef, useState, useEffect, RefObject } from 'react'
 import { Plus } from 'lucide-react'
 import { motion } from 'framer-motion'
+import { useTranslation } from 'react-i18next'
 import { FilterPill } from './FilterPill'
 import type { IncidentFilterState } from '@/hooks/useIncidentFilters'
 import { useCategories } from '@/hooks/useConfig'
 import { useUsers } from '@/hooks/useUsers'
 
 const STATES = ['new','assigned','in_progress','on_hold','resolved','closed']
-const STATE_LABELS: Record<string, string> = {
-  new:'New', assigned:'Assigned', in_progress:'In Progress',
-  on_hold:'On Hold', resolved:'Resolved', closed:'Closed',
-}
-const PRIORITY_OPTIONS = [
-  { value: '0', label: 'Highly Critical' },
-  { value: '1', label: 'Critical' }, { value: '2', label: 'High' },
-  { value: '3', label: 'Medium' },   { value: '4', label: 'Low' },
-]
-const ADD_FILTER_FIELDS = [
-  { key: 'state', label: 'State' },
-  { key: 'priority', label: 'Priority' },
-  { key: 'category', label: 'Category' },
-  { key: 'assignee_id', label: 'Assignee' },
-]
 
 interface Props {
   filterState: IncidentFilterState
@@ -30,8 +16,27 @@ interface Props {
 
 export function FilterBar({ filterState, searchInputRef }: Props) {
   const { activeFilters, clearFilter, clearAllFilters, setFilter, searchQuery, setSearchQuery } = filterState
+  const { t } = useTranslation()
   const { data: categories } = useCategories()
   const { data: agents } = useUsers('agent')
+
+  const STATE_LABELS: Record<string, string> = {
+    new: t('states.new'), assigned: t('states.assigned'), in_progress: t('states.in_progress'),
+    on_hold: t('states.on_hold'), resolved: t('states.resolved'), closed: t('states.closed'),
+  }
+  const PRIORITY_OPTIONS = [
+    { value: '0', label: t('priorities.p0') },
+    { value: '1', label: t('priorities.p1') },
+    { value: '2', label: t('priorities.p2') },
+    { value: '3', label: t('priorities.p3') },
+    { value: '4', label: t('priorities.p4') },
+  ]
+  const ADD_FILTER_FIELDS = [
+    { key: 'state',       label: t('filter.fieldState')    },
+    { key: 'priority',    label: t('filter.fieldPriority') },
+    { key: 'category',    label: t('filter.fieldCategory') },
+    { key: 'assignee_id', label: t('filter.fieldAssignee') },
+  ]
   const [addOpen, setAddOpen] = useState(false)
   const [addField, setAddField] = useState<string | null>(null)
   const [searchFocused, setSearchFocused] = useState(false)
@@ -94,7 +99,7 @@ export function FilterBar({ filterState, searchInputRef }: Props) {
       <div className="py-1">
         <button onClick={() => pick('unassigned')}
           className="block w-full text-left px-3 py-1 text-xs text-surface-700 hover:bg-surface-100"
-        >Unassigned</button>
+        >{t('filter.unassigned')}</button>
         {(agents ?? []).map(u => (
           <button key={u.id} onClick={() => pick(u.id)}
             className="block w-full text-left px-3 py-1 text-xs text-surface-700 hover:bg-surface-100"
@@ -122,7 +127,7 @@ export function FilterBar({ filterState, searchInputRef }: Props) {
         ))}
         {activeFilters.length > 0 && (
           <button onClick={clearAllFilters} className="text-2xs text-surface-400 hover:text-surface-600 whitespace-nowrap ml-1">
-            Clear
+            {t('filter.clear')}
           </button>
         )}
       </div>
@@ -135,7 +140,7 @@ export function FilterBar({ filterState, searchInputRef }: Props) {
           style={{ height: 22, padding: '0 4px' }}
         >
           <Plus size={11} strokeWidth={2.5} />
-          Add filter
+          {t('filter.addFilter')}
         </button>
         {addOpen && (
           <div
@@ -161,7 +166,7 @@ export function FilterBar({ filterState, searchInputRef }: Props) {
       <motion.input
         ref={searchInputRef}
         type="text"
-        placeholder="Search title… (/)"
+        placeholder={t('filter.searchPlaceholder')}
         value={localSearch}
         onChange={e => setLocalSearch(e.target.value)}
         onFocus={() => setSearchFocused(true)}

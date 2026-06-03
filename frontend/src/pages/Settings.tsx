@@ -11,6 +11,7 @@ const LANGUAGES: { value: Language; label: string; native: string }[] = [
   { value: 'de', label: 'German',   native: 'Deutsch'   },
   { value: 'es', label: 'Spanish',  native: 'Español'   },
   { value: 'zh', label: 'Mandarin', native: '中文'       },
+  { value: 'hi', label: 'Hindi',    native: 'हिन्दी'     },
 ]
 
 const FONT_SIZES: { value: FontSize; label: string; previewPx: number }[] = [
@@ -292,7 +293,7 @@ export default function Settings() {
             {/* Language */}
             <div>
               <div className="text-xs font-semibold text-surface-600 mb-3 uppercase tracking-wider" style={{ fontSize: 11 }}>{t('settings.language')}</div>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 8 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 8 }}>
                 {LANGUAGES.map(({ value, label, native }) => {
                   const active = language === value
                   return (

@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import {
   ChevronLeft, AlertTriangle, ChevronDown, Loader2, Brain,
   MessageSquare, Lock, ArrowRight, UserPlus, FileUp, FileText, Lightbulb, Pencil
@@ -61,12 +62,27 @@ function StatusStepper({ currentState }: { currentState: string }) {
           const items: React.ReactNode[] = [
             <div key={`node-${state}`} className="flex items-center gap-1.5 flex-none">
               <motion.div
-                animate={{
-                  backgroundColor: isCurrent ? meta.color : isPast ? '#94a3b8' : 'transparent',
-                  borderColor: isCurrent ? meta.color : isPast ? '#94a3b8' : '#d1d5db',
-                  scale: isCurrent ? 1.3 : 1,
+                animate={isCurrent ? {
+                  backgroundColor: meta.color,
+                  borderColor: meta.color,
+                  scale: 1.3,
+                  boxShadow: [
+                    `0 0 0px 0px ${meta.color}55`,
+                    `0 0 6px 3px ${meta.color}66`,
+                    `0 0 0px 0px ${meta.color}55`,
+                  ],
+                } : {
+                  backgroundColor: isPast ? '#94a3b8' : 'transparent',
+                  borderColor: isPast ? '#94a3b8' : '#d1d5db',
+                  scale: 1,
+                  boxShadow: '0 0 0px 0px transparent',
                 }}
-                transition={{ duration: 0.22 }}
+                transition={isCurrent ? {
+                  backgroundColor: { duration: 0.22 },
+                  borderColor: { duration: 0.22 },
+                  scale: { duration: 0.22 },
+                  boxShadow: { duration: 1.8, repeat: Infinity, ease: 'easeInOut' },
+                } : { duration: 0.22 }}
                 style={{ width: 7, height: 7, borderRadius: '50%', border: '1.5px solid', flexShrink: 0 }}
               />
               <span style={{
@@ -101,6 +117,7 @@ function StatusStepper({ currentState }: { currentState: string }) {
 }
 
 function LockedByBadge({ user }: { user: PresenceUser }) {
+  const { t } = useTranslation()
   return (
     <div style={{
       display: 'inline-flex', alignItems: 'center', gap: 4,
@@ -109,7 +126,7 @@ function LockedByBadge({ user }: { user: PresenceUser }) {
     }}>
       <div style={{ width: 5, height: 5, borderRadius: '50%', background: user.color, flexShrink: 0 }} />
       <Lock size={9} style={{ color: '#94a3b8' }} />
-      {user.name.split(' ')[0]} is editing
+      {user.name.split(' ')[0]} {t('incidentDetail.isEditing')}
     </div>
   )
 }
@@ -129,6 +146,7 @@ function SlaValue({ sla_resolution_due, sla_breached, state, created_at }: {
   state: string
   created_at: string
 }) {
+  const { t } = useTranslation()
   const isDone = state === 'resolved' || state === 'closed'
   const due = sla_resolution_due ? new Date(sla_resolution_due) : null
   if (!due) return <span className="text-xs text-surface-400">—</span>
@@ -210,10 +228,12 @@ function SlaValue({ sla_resolution_due, sla_breached, state, created_at }: {
       </div>
       <div className="flex flex-col">
         <span className={`text-xs ${textClass}`}>
-          {isBreached ? `Breached ${fmt(msRemaining)} ago` : `Resolve in ${fmt(msRemaining)}`}
+          {isBreached
+            ? t('incidentDetail.slaBreached', { time: fmt(msRemaining) })
+            : t('incidentDetail.slaResolveIn', { time: fmt(msRemaining) })}
         </span>
         <span className="text-[10px] text-surface-400 leading-tight">
-          Due {due.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+          {t('incidentDetail.slaDue', { time: due.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) })}
         </span>
       </div>
     </div>
@@ -342,6 +362,7 @@ function StructuredDescription({ text }: { text: string }) {
 }
 
 function EventItem({ event, userMap }: { event: IncidentEvent; userMap: Record<string, string> }) {
+  const { t } = useTranslation()
   const actor = userMap[event.actor_id] ?? `${event.actor_id.slice(0, 8)}…`
   const when = relativeTime(event.created_at)
   const meta = (event.event_metadata ?? {}) as Record<string, string>
@@ -384,7 +405,7 @@ function EventItem({ event, userMap }: { event: IncidentEvent; userMap: Record<s
                 color: '#92400e',
               }}
             >
-              WORK NOTE
+              {t('incidentDetail.workNoteLabel')}
             </span>
           )}
           <span className="ml-auto text-2xs text-surface-400">{when}</span>
@@ -407,7 +428,7 @@ function EventItem({ event, userMap }: { event: IncidentEvent; userMap: Record<s
       <div className="flex items-center gap-2 text-2xs text-surface-500 py-1" style={{ minHeight: 24 }}>
         <span>
           <span className="font-semibold text-surface-600">{actor}</span>
-          {' '}changed state{' '}
+          {' '}{t('incidentDetail.changedState')}{' '}
           <span className="font-semibold text-surface-600">{toTitle(from)}</span>
           {' → '}
           <span className="font-semibold text-surface-700">{toTitle(to)}</span>
@@ -431,7 +452,7 @@ function EventItem({ event, userMap }: { event: IncidentEvent; userMap: Record<s
     if (isCreated) {
       bodyNode = (
         <div className="flex items-center gap-2 text-2xs text-surface-500 py-1" style={{ minHeight: 24 }}>
-          <span><span className="font-semibold text-surface-600">{actor}</span> created this incident</span>
+          <span><span className="font-semibold text-surface-600">{actor}</span> {t('incidentDetail.createdIncident')}</span>
           <span className="ml-auto whitespace-nowrap">{when}</span>
         </div>
       )
@@ -440,7 +461,7 @@ function EventItem({ event, userMap }: { event: IncidentEvent; userMap: Record<s
         <div className="flex items-start gap-2 text-2xs text-surface-500 py-1" style={{ minHeight: 24 }}>
           <span>
             <span className="font-semibold text-surface-600">{actor}</span>
-            {' '}updated <span className="font-semibold">{meta.field}</span>
+            {' '}{t('incidentDetail.updatedField')} <span className="font-semibold">{meta.field}</span>
             {meta.old && meta.new ? (
               <span className="text-surface-400"> ({meta.old} → {meta.new})</span>
             ) : null}
@@ -450,7 +471,7 @@ function EventItem({ event, userMap }: { event: IncidentEvent; userMap: Record<s
       )
     }
   } else if (event.event_type === 'attachment_added' || event.event_type === 'attachment_deleted') {
-    const verb = event.event_type === 'attachment_added' ? 'added' : 'removed'
+    const verb = event.event_type === 'attachment_added' ? t('incidentDetail.addedAttachment') : t('incidentDetail.removedAttachment')
     iconNode = (
       <div className="w-6 h-6 rounded-full bg-blue-100 dark:bg-blue-950/40 text-blue-600 border border-blue-200 dark:border-blue-900/60 flex items-center justify-center">
         <FileUp size={11} />
@@ -459,7 +480,7 @@ function EventItem({ event, userMap }: { event: IncidentEvent; userMap: Record<s
 
     bodyNode = (
       <div className="flex items-center gap-2 text-2xs text-surface-500 py-1" style={{ minHeight: 24 }}>
-        <span><span className="font-semibold text-surface-600">{actor}</span> {verb} an attachment</span>
+        <span><span className="font-semibold text-surface-600">{actor}</span> {verb}</span>
         <span className="ml-auto whitespace-nowrap">{when}</span>
       </div>
     )
@@ -488,6 +509,7 @@ export default function IncidentDetail() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const qc = useQueryClient()
+  const { t } = useTranslation()
 
   const { data: incident, isLoading, error } = useIncident(id!)
   const { data: me } = useMe()
@@ -642,9 +664,9 @@ export default function IncidentDetail() {
   if (error || !incident) {
     return (
       <div className="flex-1 flex items-center justify-center gap-2 text-xs text-red-600">
-        Failed to load incident.
+        {t('incidentDetail.failedToLoad')}
         <button onClick={() => navigate('/incidents')} className="underline text-surface-600">
-          Back to list
+          {t('incidentDetail.backToList')}
         </button>
       </div>
     )
@@ -672,7 +694,7 @@ export default function IncidentDetail() {
           className="flex items-center gap-1 text-xs text-surface-500 hover:text-surface-700 transition-colors flex-none"
         >
           <ChevronLeft size={14} />
-          Incidents
+          {t('incidentDetail.breadcrumb')}
         </button>
         <span className="text-surface-300 flex-none">|</span>
         <span className="font-mono text-xs text-surface-500 flex-none">{incident.number}</span>
@@ -788,7 +810,7 @@ export default function IncidentDetail() {
               style={{ borderRadius: 2 }}
             >
               <Brain size={11} className="flex-none" />
-              AI Help
+              {t('incidentDetail.aiHelp')}
             </button>
           )}
         </div>
@@ -802,26 +824,26 @@ export default function IncidentDetail() {
         <div className="flex-none border-b border-amber-200 px-4 py-3" style={{ background: 'rgba(245,158,11,0.05)' }}>
           <div className="flex items-start gap-4 max-w-3xl">
             <div className="flex-1 min-w-0">
-              <div className="text-2xs font-semibold text-surface-400 uppercase tracking-wider mb-1">Resolution Code *</div>
+              <div className="text-2xs font-semibold text-surface-400 uppercase tracking-wider mb-1">{t('incidentDetail.resolutionCodeLabel')}</div>
               <select
                 value={resCode}
                 onChange={e => setResCode(e.target.value)}
                 className="w-full text-xs border border-surface-200 bg-white px-2 py-1 focus:outline-none focus:border-surface-400"
                 style={{ borderRadius: 2 }}
               >
-                <option value="">Select resolution code…</option>
+                <option value="">{t('incidentDetail.resolutionCodeLabel')}</option>
                 {resolutionCodes.map(code => (
                   <option key={code} value={code}>{code}</option>
                 ))}
               </select>
             </div>
             <div className="flex-1 min-w-0">
-              <div className="text-2xs font-semibold text-surface-400 uppercase tracking-wider mb-1">Resolution Notes *</div>
+              <div className="text-2xs font-semibold text-surface-400 uppercase tracking-wider mb-1">{t('incidentDetail.resolutionNotesLabel')}</div>
               <textarea
                 value={resNotes}
                 onChange={e => setResNotes(e.target.value)}
                 rows={2}
-                placeholder="Describe how the issue was resolved…"
+                placeholder={t('incidentDetail.resolutionNotesPlaceholder')}
                 className="w-full text-xs border border-surface-200 bg-white px-2 py-1 focus:outline-none focus:border-surface-400 resize-none"
                 style={{ borderRadius: 2 }}
               />
@@ -836,7 +858,7 @@ export default function IncidentDetail() {
                   className="mt-1 flex items-center gap-1 text-2xs text-indigo-600 hover:text-indigo-800 disabled:opacity-50 transition-colors"
                 >
                   <Brain size={10} className="flex-none" />
-                  {draftResMut.isPending ? 'Drafting…' : 'Draft with AI'}
+                  {draftResMut.isPending ? t('incidentDetail.drafting') : t('incidentDetail.draftWithAI')}
                 </button>
               )}
             </div>
@@ -848,13 +870,13 @@ export default function IncidentDetail() {
                 className="text-xs font-medium px-3 py-1 bg-surface-800 text-white hover:bg-surface-700 disabled:opacity-40 transition-colors"
                 style={{ borderRadius: 2 }}
               >
-                {transitionMut.isPending ? 'Resolving…' : 'Mark Resolved'}
+                {transitionMut.isPending ? t('incidentDetail.resolving') : t('incidentDetail.markResolved')}
               </SpinButton>
               <button
                 onClick={() => { setShowResForm(false); setResCode(''); setResNotes('') }}
                 className="text-xs text-surface-500 hover:text-surface-700 text-center"
               >
-                Cancel
+                {t('incidentDetail.cancel')}
               </button>
             </div>
           </div>
@@ -873,7 +895,7 @@ export default function IncidentDetail() {
           {/* Description */}
           <div className="border-b border-surface-100" style={{ paddingLeft: 20, paddingRight: 20, paddingTop: 8, paddingBottom: 8 }}>
             <div className="flex items-center justify-between mb-2">
-              <span className="text-2xs font-semibold text-surface-400 uppercase tracking-wider">Description</span>
+              <span className="text-2xs font-semibold text-surface-400 uppercase tracking-wider">{t('incidentDetail.description')}</span>
               {isAgent && !isClosed && !lockedBy('description') && !editDesc && (
                 <button
                   onClick={() => {
@@ -884,7 +906,7 @@ export default function IncidentDetail() {
                   className="flex items-center gap-1 text-2xs text-surface-400 hover:text-surface-600 transition-colors"
                 >
                   <Pencil size={10} />
-                  Edit
+                  {t('incidentDetail.edit')}
                 </button>
               )}
             </div>
@@ -905,13 +927,13 @@ export default function IncidentDetail() {
                     className="text-xs font-medium px-3 py-1 bg-surface-800 text-white hover:bg-surface-700 disabled:opacity-40"
                     style={{ borderRadius: 2 }}
                   >
-                    {patchMut.isPending ? 'Saving…' : 'Save'}
+                    {patchMut.isPending ? t('incidentDetail.saving') : t('incidentDetail.save')}
                   </SpinButton>
                   <button
                     onClick={() => { setEditDesc(false); unlockField('description') }}
                     className="text-xs text-surface-500 hover:text-surface-700"
                   >
-                    Cancel
+                    {t('incidentDetail.cancel')}
                   </button>
                 </div>
               </div>
@@ -925,7 +947,7 @@ export default function IncidentDetail() {
                 <div>
                   {incident.description
                     ? <StructuredDescription text={incident.description} />
-                    : <span className="text-surface-400 italic text-xs">No description provided.</span>
+                    : <span className="text-surface-400 italic text-xs">{t('incidentDetail.noDescription')}</span>
                   }
                 </div>
               </>
@@ -936,9 +958,9 @@ export default function IncidentDetail() {
 
           {/* Activity */}
           <div className="flex-1" style={{ paddingLeft: 20, paddingRight: 20, paddingTop: 12, paddingBottom: 8 }}>
-            <div className="text-2xs font-semibold text-surface-400 uppercase tracking-wider mb-3">Activity</div>
+            <div className="text-2xs font-semibold text-surface-400 uppercase tracking-wider mb-3">{t('incidentDetail.activity')}</div>
             {incident.events.length === 0 ? (
-              <div className="text-xs text-surface-400 italic">No activity yet.</div>
+              <div className="text-xs text-surface-400 italic">{t('incidentDetail.noActivity')}</div>
             ) : (
               <div className="timeline-thread pl-1" style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                 {incident.events.map(event => (
@@ -966,7 +988,7 @@ export default function IncidentDetail() {
                           : 'bg-white text-surface-600 hover:bg-surface-100'
                       }`}
                     >
-                      {tab === 'comment' ? 'Comment' : 'Work Note'}
+                      {tab === 'comment' ? t('incidentDetail.comment') : t('incidentDetail.workNote')}
                     </button>
                   ))}
                 </div>
@@ -977,7 +999,7 @@ export default function IncidentDetail() {
                 onFocus={() => setCommentFocused(true)}
                 onBlur={() => { if (!commentText.trim()) setCommentFocused(false) }}
                 onKeyDown={e => { if (e.key === 'Enter' && e.ctrlKey) submitComment() }}
-                placeholder={`Add a ${commentTab === 'work_note' ? 'work note' : 'comment'}… (Ctrl+Enter to submit)`}
+                placeholder={commentTab === 'work_note' ? t('incidentDetail.workNotePlaceholder') : t('incidentDetail.commentPlaceholder')}
                 className="w-full text-xs border border-surface-200 bg-white focus:outline-none focus:border-surface-400"
                 style={{ height: commentFocused ? 120 : 56, resize: 'none', padding: 8, borderRadius: 2 }}
               />
@@ -993,7 +1015,7 @@ export default function IncidentDetail() {
                     className="flex items-center gap-1 text-2xs text-indigo-600 hover:text-indigo-800 disabled:opacity-50 transition-colors"
                   >
                     <Brain size={10} className="flex-none" />
-                    {draftReplyMut.isPending ? 'Drafting…' : 'Draft reply'}
+                    {draftReplyMut.isPending ? t('incidentDetail.drafting') : t('incidentDetail.draftReply')}
                   </button>
                 ) : <span />}
                 <SpinButton
@@ -1003,7 +1025,7 @@ export default function IncidentDetail() {
                   className="text-xs font-medium bg-surface-700 text-white hover:bg-surface-800 disabled:opacity-40 transition-colors"
                   style={{ height: 28, padding: '0 8px', borderRadius: 2 }}
                 >
-                  {commentMut.isPending ? 'Posting…' : 'Post'}
+                  {commentMut.isPending ? t('incidentDetail.posting') : t('incidentDetail.post')}
                 </SpinButton>
               </div>
             </div>
@@ -1017,12 +1039,12 @@ export default function IncidentDetail() {
         >
           {/* Status transitions */}
           {(isAgent && !isClosed) && (
-            <FieldSection label="Status">
+            <FieldSection label={t('incidentDetail.fieldStatus')}>
               <div className="flex flex-col gap-1.5">
                 {transitionMut.isPending ? (
                   <div className="flex items-center gap-1.5 text-xs text-surface-500 py-0.5">
                     <Loader2 size={11} className="animate-spin flex-none" />
-                    Saving…
+                    {t('incidentDetail.saving')}
                   </div>
                 ) : (
                   <>
@@ -1050,7 +1072,7 @@ export default function IncidentDetail() {
                             size={10}
                             style={{ transition: 'transform 0.15s', transform: transitionOpen ? 'rotate(180deg)' : 'none' }}
                           />
-                          More transitions
+                          {t('incidentDetail.moreTransitions')}
                         </button>
                         {transitionOpen && (
                           <>
@@ -1081,21 +1103,21 @@ export default function IncidentDetail() {
           )}
 
           {canClose && (
-            <FieldSection label="Status">
+            <FieldSection label={t('incidentDetail.fieldStatus')}>
               <SpinButton
                 onClick={() => transitionMut.mutate({ to_state: 'closed' })}
                 isLoading={transitionMut.isPending}
                 className="w-full text-xs border border-surface-200 px-2 py-1.5 hover:bg-surface-50 text-surface-600 hover:text-surface-800 transition-colors disabled:opacity-50"
                 style={{ borderRadius: 2 }}
               >
-                {transitionMut.isPending ? 'Closing…' : 'Close Incident'}
+                {transitionMut.isPending ? t('incidentDetail.closing') : t('incidentDetail.closeIncident')}
               </SpinButton>
             </FieldSection>
           )}
 
           <div className="border-t border-surface-100 mb-1" />
 
-          <FieldSection label="Priority">
+          <FieldSection label={t('incidentDetail.fieldPriority')}>
             {isAgent && !isClosed && lockedBy('priority') ? (
               <>
                 <PriorityBadge priority={incident.priority} priorities={priorities} />
@@ -1119,7 +1141,7 @@ export default function IncidentDetail() {
             )}
           </FieldSection>
 
-          <FieldSection label="Category">
+          <FieldSection label={t('incidentDetail.fieldCategory')}>
             {isAgent && !isClosed && lockedBy('category') ? (
               <>
                 <span className="text-surface-800">{incident.category}</span>
@@ -1141,11 +1163,11 @@ export default function IncidentDetail() {
             )}
           </FieldSection>
 
-          <FieldSection label="Assignee">
+          <FieldSection label={t('incidentDetail.fieldAssignee')}>
             {isAgent && !isClosed && lockedBy('assignee') ? (
               <>
                 <span className="text-surface-800">
-                  {incident.assignee?.name ?? <span className="text-surface-400">Unassigned</span>}
+                  {incident.assignee?.name ?? <span className="text-surface-400">{t('incidentDetail.unassigned')}</span>}
                 </span>
                 <div style={{ marginTop: 4 }}><LockedByBadge user={lockedBy('assignee')!} /></div>
               </>
@@ -1158,7 +1180,7 @@ export default function IncidentDetail() {
                 className="w-full text-xs border border-surface-200 bg-white px-2 py-1 focus:outline-none focus:border-surface-400"
                 style={{ borderRadius: 2 }}
               >
-                <option value="">Unassigned</option>
+                <option value="">{t('incidentDetail.unassigned')}</option>
                 {assigneeOptions.map(u => (
                   <option key={u.id} value={u.id}>{u.name}</option>
                 ))}
@@ -1170,18 +1192,18 @@ export default function IncidentDetail() {
             )}
           </FieldSection>
 
-          <FieldSection label="Requester">
+          <FieldSection label={t('incidentDetail.fieldRequester')}>
             <span className="text-xs text-surface-800 font-medium">{incident.requester.name}</span>
             <div className="text-2xs text-surface-400 mt-0.5">{incident.requester.email}</div>
           </FieldSection>
 
-          <FieldSection label="Source">
+          <FieldSection label={t('incidentDetail.fieldSource')}>
             <span className="text-surface-800 capitalize">{incident.source.replace(/_/g, ' ')}</span>
           </FieldSection>
 
           <div className="border-t border-surface-200 my-2" />
 
-          <FieldSection label="SLA Due">
+          <FieldSection label={t('incidentDetail.fieldSlaDue')}>
             <SlaValue
               sla_resolution_due={incident.sla_resolution_due}
               sla_breached={incident.sla_breached}
@@ -1192,20 +1214,20 @@ export default function IncidentDetail() {
 
           <div className="border-t border-surface-200 my-2" />
 
-          <FieldSection label="Created">
+          <FieldSection label={t('incidentDetail.fieldCreated')}>
             <span className="text-surface-800" title={incident.created_at}>
               {relativeTime(incident.created_at)}
             </span>
           </FieldSection>
 
-          <FieldSection label="Updated">
+          <FieldSection label={t('incidentDetail.fieldUpdated')}>
             <span className="text-surface-800" title={incident.updated_at}>
               {relativeTime(incident.updated_at)}
             </span>
           </FieldSection>
 
           {incident.resolved_at && (
-            <FieldSection label="Resolved">
+            <FieldSection label={t('incidentDetail.fieldResolved')}>
               <span className="text-surface-800" title={incident.resolved_at}>
                 {relativeTime(incident.resolved_at)}
               </span>
@@ -1213,7 +1235,7 @@ export default function IncidentDetail() {
           )}
 
           {incident.closed_at && (
-            <FieldSection label="Closed">
+            <FieldSection label={t('incidentDetail.fieldClosed')}>
               <span className="text-surface-800" title={incident.closed_at}>
                 {relativeTime(incident.closed_at)}
               </span>
@@ -1223,11 +1245,11 @@ export default function IncidentDetail() {
           {isResolved && incident.resolution_code && (
             <>
               <div className="border-t border-surface-200 my-2" />
-              <FieldSection label="Resolution Code">
+              <FieldSection label={t('incidentDetail.fieldResolutionCode')}>
                 <span className="text-surface-800">{incident.resolution_code}</span>
               </FieldSection>
               {incident.resolution_notes && (
-                <FieldSection label="Resolution Notes">
+                <FieldSection label={t('incidentDetail.fieldResolutionNotes')}>
                   <p className="text-surface-800 whitespace-pre-wrap leading-relaxed">{incident.resolution_notes}</p>
                 </FieldSection>
               )}
@@ -1260,13 +1282,13 @@ export default function IncidentDetail() {
               <div className="flex-none flex items-center justify-between px-4 border-b border-indigo-100 dark:border-indigo-950/50" style={{ height: 48 }}>
                 <div className="flex items-center gap-2">
                   <Brain size={14} className="text-indigo-600 dark:text-indigo-400 animate-pulse" />
-                  <span className="text-xs font-semibold text-indigo-700 dark:text-indigo-400 uppercase tracking-wider">AI Incident Co-Pilot</span>
+                  <span className="text-xs font-semibold text-indigo-700 dark:text-indigo-400 uppercase tracking-wider">{t('incidentDetail.aiCoPilot')}</span>
                 </div>
                 <button
                   onClick={() => setAiPanelOpen(false)}
                   className="text-surface-400 hover:text-surface-600 text-xs px-2 py-1 rounded hover:bg-surface-100 dark:hover:bg-slate-800 transition-colors"
                 >
-                  Close
+                  {t('incidentDetail.close')}
                 </button>
               </div>
 
@@ -1275,18 +1297,18 @@ export default function IncidentDetail() {
                 {/* AI Summary Section */}
                 <div className="bg-slate-50/50 dark:bg-slate-900/40 p-3 rounded-lg border border-slate-200/60 dark:border-slate-800/80">
                   <div className="flex items-center justify-between mb-2">
-                    <span className="text-2xs font-bold text-surface-500 uppercase tracking-wider">Thread Summary</span>
+                    <span className="text-2xs font-bold text-surface-500 uppercase tracking-wider">{t('incidentDetail.threadSummary')}</span>
                     {!summarizeMut.data && !summarizeMut.isPending && (
                       <button
                         onClick={() => summarizeMut.mutate(id!)}
                         className="text-2xs text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 font-semibold border border-indigo-200 dark:border-indigo-800/80 px-2.5 py-0.5 rounded bg-white dark:bg-slate-950 hover:bg-indigo-50/30 transition-all shadow-sm"
                       >
-                        Summarize Thread
+                        {t('incidentDetail.summarizeThread')}
                       </button>
                     )}
                     {summarizeMut.data && (
                       <button onClick={() => summarizeMut.reset()} className="text-2xs text-surface-400 hover:text-surface-600 font-medium">
-                        Clear
+                        {t('incidentDetail.clear')}
                       </button>
                     )}
                   </div>
@@ -1294,11 +1316,11 @@ export default function IncidentDetail() {
                   {summarizeMut.isPending && (
                     <div className="flex items-center gap-2 text-xs text-surface-500 py-2">
                       <Loader2 size={12} className="animate-spin text-indigo-500" />
-                      Synthesizing intelligence summary…
+                      {t('incidentDetail.synthesizing')}
                     </div>
                   )}
 
-                  {summarizeMut.isError && <div className="text-xs text-red-500 py-1">Failed to generate summary.</div>}
+                  {summarizeMut.isError && <div className="text-xs text-red-500 py-1">{t('incidentDetail.summaryFailed')}</div>}
 
                   {summarizeMut.data?.summary && (
                     <div className="text-xs text-surface-700 dark:text-surface-300 leading-relaxed bg-white/70 dark:bg-slate-950/60 p-2.5 rounded border border-indigo-100/50 dark:border-indigo-900/30 shadow-sm">
@@ -1307,23 +1329,23 @@ export default function IncidentDetail() {
                   )}
 
                   {!summarizeMut.data && !summarizeMut.isPending && !summarizeMut.isError && (
-                    <p className="text-xs text-surface-400 italic">Generate a quick executive summary of this incident's discussion history.</p>
+                    <p className="text-xs text-surface-400 italic">{t('incidentDetail.summaryHint')}</p>
                   )}
                 </div>
 
                 {/* Similar Incidents Section */}
                 <div className="flex-1 flex flex-col min-h-0">
-                  <span className="text-2xs font-bold text-surface-500 uppercase tracking-wider mb-2 block">Similar Solved Incidents</span>
+                  <span className="text-2xs font-bold text-surface-500 uppercase tracking-wider mb-2 block">{t('incidentDetail.similarIncidents')}</span>
                   <div className="flex-1 overflow-y-auto pr-1">
                     {similarLoading ? (
                       <div className="flex items-center gap-2 text-xs text-surface-500 py-2">
                         <Loader2 size={13} className="animate-spin text-indigo-500" />
-                        Analyzing semantic cluster mapping…
+                        {t('incidentDetail.analyzingClusters')}
                       </div>
                     ) : similarError ? (
-                      <div className="text-xs text-red-500">Failed to analyze incident relationships.</div>
+                      <div className="text-xs text-red-500">{t('incidentDetail.similarFailed')}</div>
                     ) : !similarIncs?.length ? (
-                      <div className="text-xs text-surface-400 italic py-2">No semantically similar resolved tickets found in records.</div>
+                      <div className="text-xs text-surface-400 italic py-2">{t('incidentDetail.noSimilar')}</div>
                     ) : (
                       <div className="flex flex-col gap-3">
                         {similarIncs.map(sim => (
@@ -1340,7 +1362,7 @@ export default function IncidentDetail() {
                             <p className="text-2xs text-surface-500 leading-relaxed mb-2 bg-slate-50/50 dark:bg-slate-950/30 p-1.5 rounded">{sim.similarity_reason}</p>
                             {sim.resolution_summary && (
                               <div className="text-2xs text-surface-700 dark:text-surface-300 leading-relaxed border-t border-slate-100 dark:border-slate-800/80 pt-2 mt-2">
-                                <span className="font-bold text-indigo-600 dark:text-indigo-400">Proven Resolution: </span>
+                                <span className="font-bold text-indigo-600 dark:text-indigo-400">{t('incidentDetail.provenResolution')} </span>
                                 {sim.resolution_summary}
                               </div>
                             )}
