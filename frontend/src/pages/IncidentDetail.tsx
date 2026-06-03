@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   ChevronLeft, AlertTriangle, ChevronDown, Loader2, Brain,
-  MessageSquare, Lock, ArrowRight, UserPlus, FileUp, FileText, Lightbulb
+  MessageSquare, Lock, ArrowRight, UserPlus, FileUp, FileText, Lightbulb, Pencil
 } from 'lucide-react'
 import { useCollaboration } from '@/hooks/useCollaboration'
 import type { PresenceUser } from '@/hooks/useCollaboration'
@@ -872,7 +872,22 @@ export default function IncidentDetail() {
         <div className="flex-1 overflow-y-auto flex flex-col min-w-0">
           {/* Description */}
           <div className="border-b border-surface-100" style={{ paddingLeft: 20, paddingRight: 20, paddingTop: 8, paddingBottom: 8 }}>
-            <div className="text-2xs font-semibold text-surface-400 uppercase tracking-wider mb-2">Description</div>
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-2xs font-semibold text-surface-400 uppercase tracking-wider">Description</span>
+              {isAgent && !isClosed && !lockedBy('description') && !editDesc && (
+                <button
+                  onClick={() => {
+                    setDescDraft(incident.description)
+                    setEditDesc(true)
+                    lockField('description')
+                  }}
+                  className="flex items-center gap-1 text-2xs text-surface-400 hover:text-surface-600 transition-colors"
+                >
+                  <Pencil size={10} />
+                  Edit
+                </button>
+              )}
+            </div>
             {editDesc ? (
               <div>
                 <textarea
@@ -907,17 +922,7 @@ export default function IncidentDetail() {
                     <LockedByBadge user={lockedBy('description')!} />
                   </div>
                 )}
-                <div
-                  className={isAgent && !isClosed && !lockedBy('description') ? 'cursor-pointer hover:bg-surface-50 -mx-1 px-1 rounded' : ''}
-                  onClick={() => {
-                    if (isAgent && !isClosed && !lockedBy('description')) {
-                      setDescDraft(incident.description)
-                      setEditDesc(true)
-                      lockField('description')
-                    }
-                  }}
-                  title={isAgent && !isClosed && !lockedBy('description') ? 'Click to edit' : undefined}
-                >
+                <div>
                   {incident.description
                     ? <StructuredDescription text={incident.description} />
                     : <span className="text-surface-400 italic text-xs">No description provided.</span>
