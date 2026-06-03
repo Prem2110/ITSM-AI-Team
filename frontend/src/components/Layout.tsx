@@ -235,8 +235,9 @@ export default function Layout() {
         className="flex-none flex items-center justify-between px-3 bg-white border-b border-surface-200"
         style={{ height: 44 }}
       >
-        <Link to="/incidents" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center' }}>
-          <img src={sierraLogo} alt="Sierra Digital" style={{ height: 26, width: 'auto', borderRadius: 3 }} />
+        <Link to="/incidents" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 8 }}>
+          <img src={sierraLogo} alt="Sierra Digital" style={{ height: 24, width: 'auto', borderRadius: 3 }} />
+          <span style={{ fontSize: 13, fontWeight: 600, color: '#1e293b', letterSpacing: '-0.01em' }}>Sierra Digital ITSM</span>
         </Link>
         <div className="flex items-center gap-3">
           {/* Search Trigger Button */}
