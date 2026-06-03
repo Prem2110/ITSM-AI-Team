@@ -11,7 +11,7 @@ _HEADERS_EXTRA = {
 
 
 class AIService:
-    def __init__(self, api_key: str, model: str = "openai/gpt-oss-120b:free") -> None:
+    def __init__(self, api_key: str, model: str = "meta-llama/llama-3.1-8b-instruct:free") -> None:
         self.api_key = api_key
         self.model = model
 

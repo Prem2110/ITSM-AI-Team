@@ -611,7 +611,6 @@ function DangerZone() {
 // Only free-tier OpenRouter models are listed here.
 // Any other model ID can be pasted directly into the input below.
 const OPENROUTER_MODELS = [
-  { id: 'openai/gpt-oss-120b:free',                       label: 'GPT OSS 120B'        },
   { id: 'meta-llama/llama-3.3-70b-instruct:free',         label: 'Llama 3.3 70B'       },
   { id: 'meta-llama/llama-3.1-8b-instruct:free',          label: 'Llama 3.1 8B'        },
   { id: 'meta-llama/llama-3.2-3b-instruct:free',          label: 'Llama 3.2 3B'        },
@@ -735,7 +734,7 @@ function AITab() {
   const testConn = useTestConnection()
 
   const [apiKey, setApiKey]   = useState('')
-  const [model, setModel]     = useState('openai/gpt-oss-120b:free')
+  const [model, setModel]     = useState('meta-llama/llama-3.1-8b-instruct:free')
   const [showKey, setShowKey] = useState(false)
   const [saved, setSaved]     = useState(false)
 
@@ -744,7 +743,7 @@ function AITab() {
 
   useEffect(() => {
     if (aiStatus) {
-      setModel(aiStatus.model || 'openai/gpt-oss-120b:free')
+      setModel(aiStatus.model || 'meta-llama/llama-3.1-8b-instruct:free')
       if (aiStatus.has_key) setApiKey('••••••••••••••••')
     }
   }, [aiStatus])
