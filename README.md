@@ -1,8 +1,8 @@
-# ITSM — IT Service Management
+# Sierra Digital ITSM
 
 > **New here?** Read the [Client Onboarding Guide](CLIENTONBOARDING.md) for step-by-step setup and troubleshooting.
 
-A single-tenant IT Service Management tool — a simplified ServiceNow-like ticketing system with AI-powered predictive analytics. Each customer gets their own deployment on SAP BTP Cloud Foundry.
+A single-tenant IT Service Management tool built by Sierra Digital — a simplified ServiceNow-like ticketing system with AI-powered predictive analytics. Each customer gets their own deployment on SAP BTP Cloud Foundry.
 
 ---
 
@@ -14,7 +14,9 @@ A single-tenant IT Service Management tool — a simplified ServiceNow-like tick
 | Database | SAP HANA (production) / SQLite (local dev) |
 | Frontend | React 18, Vite, TypeScript, Tailwind CSS, TanStack Query, Framer Motion |
 | Charts | Recharts |
-| AI | OpenRouter API (any LLM — auto-classify, similar incidents, agent suggestions, summarize, draft reply, handoff report) |
+| AI | OpenRouter API (any LLM — auto-classify, similar incidents, agent suggestions, summarize, draft reply, ops summary, handoff report) |
+| Collaboration | Live presence & field locking via WebSockets |
+| i18n | English, French, German, Spanish, Mandarin, Hindi |
 | Auth | Fake-auth stub (current) / SAP XSUAA JWT (add back post-stabilisation) |
 | Deployment | SAP BTP Cloud Foundry (MTA) |
 
@@ -116,17 +118,19 @@ ITSM/
 └── frontend/
     └── src/
         ├── api/                Axios client + per-domain fetch helpers (incidents, ai, setup, …)
-        ├── components/         Layout, SettingsModal (General/Appearance/AI tabs), badges, skeletons
+        ├── assets/             Static assets (Sierra Digital logo)
+        ├── components/         Layout (with Sierra logo), SettingsModal, KanbanBoard, badges, skeletons
         ├── contexts/           SettingsContext (theme, font, font size, language, dark mode)
         ├── hooks/              React Query hooks (useIncidents, useMe, useDashboard, useAI, …)
+        ├── locales/            i18n JSON files — en, fr, de, es, zh, hi
         ├── pages/
-        │   ├── Dashboard.tsx         Stats cards + Recharts charts
-        │   ├── PredictiveAnalytics.tsx  SLA risk, anomalies, forecast, agent workload, AI widgets
-        │   ├── Incidents.tsx         Filterable paginated incident list
-        │   ├── IncidentDetail.tsx    View, edit, transition, comment, similar incidents (AI)
-        │   ├── IncidentNew.tsx       Create incident form (with AI auto-classify)
-        │   ├── Setup.tsx             First-run wizard
-        │   └── Login.tsx             Fake-auth email picker
+        │   ├── Dashboard.tsx             Stats cards + Recharts charts
+        │   ├── PredictiveAnalytics.tsx   SLA risk, anomalies, forecast, workload, historical panels, AI ops summary
+        │   ├── Incidents.tsx             Filterable/paginated list + Kanban board toggle
+        │   ├── IncidentDetail.tsx        View, edit, transition, comment, AI help drawer, live collaboration
+        │   ├── IncidentNew.tsx           Create incident form (with AI auto-classify)
+        │   ├── Setup.tsx                 First-run wizard
+        │   └── Login.tsx                 Fake-auth email picker
         └── router.tsx              Route definitions + lazy loading
 ```
 
@@ -225,6 +229,10 @@ On incident creation, `sla_resolution_due = now + priority.sla_hours`. Each requ
 | GET | `/api/dashboard/sla-compliance` | TicketRead | SLA met % |
 | GET | `/api/dashboard/top-categories` | TicketRead | Incident count by category |
 | GET | `/api/dashboard/ops-kpis` | TicketRead | Avg resolution hours, reopened, overdue |
+| GET | `/api/dashboard/sla-breach-heatmap` | TicketRead | SLA breach rate by category × priority |
+| GET | `/api/dashboard/peak-volume` | TicketRead | Incident volume heatmap by weekday × 4-hour block |
+| GET | `/api/dashboard/reopen-rate` | TicketRead | Reopen rate by category |
+| GET | `/api/dashboard/resolution-time` | TicketRead | Avg + P50 resolution hours by category |
 
 ### AI & Predictive Analytics
 
@@ -244,6 +252,7 @@ On incident creation, `sla_resolution_due = now + priority.sla_hours`. Each requ
 | POST | `/api/ai/incidents/{id}/draft-reply` | TicketWrite | Draft a customer-facing reply based on thread |
 | POST | `/api/ai/incidents/{id}/draft-resolution` | TicketWrite | Draft resolution notes from the comment thread |
 | POST | `/api/ai/handoff-report` | Agent | Generate a structured shift handoff report for all open incidents |
+| POST | `/api/ai/ops-summary` | Agent | Generate a weekly operational health narrative |
 
 ### Users
 
@@ -386,21 +395,53 @@ The `Procfile` runs `alembic upgrade head` automatically before uvicorn on every
 
 AI features are **opt-in** — disabled until an admin provides an [OpenRouter](https://openrouter.ai) API key in Settings → AI & Automation.
 
-| Feature | Where |
-|---------|-------|
-| Auto-classify (priority + category suggestion) | New incident form + Predictive Analytics page |
-| Similar resolved incidents | Incident detail → AI Help panel |
-| Thread summarizer | Incident detail → AI Help panel |
-| Draft customer reply | Incident detail → comment box |
-| Draft resolution notes | Incident detail → resolve form |
-| Shift handoff report | Incidents list toolbar → opens modal |
-| Suggest assignee | Predictive Analytics → Agent workload |
-| SLA risk monitor | Predictive Analytics (always on, no AI key needed) |
-| Anomaly detection | Predictive Analytics (always on) |
-| 7-day incident forecast | Predictive Analytics (always on) |
-| Agent workload table | Predictive Analytics (always on) |
+| Feature | Where | AI required |
+|---------|-------|-------------|
+| Auto-classify (priority + category suggestion) | New incident form + Predictive Analytics | ✅ |
+| Similar resolved incidents | Incident detail → AI Help panel | ✅ |
+| Thread summarizer | Incident detail → AI Help panel | ✅ |
+| Draft customer reply | Incident detail → comment box | ✅ |
+| Draft resolution notes | Incident detail → resolve form | ✅ |
+| Weekly ops summary | Predictive Analytics → AI section | ✅ |
+| Shift handoff report | Incidents list toolbar → modal | ✅ |
+| Suggest assignee | Predictive Analytics → Agent workload | ✅ |
+| SLA risk monitor | Predictive Analytics | — |
+| Anomaly detection | Predictive Analytics | — |
+| 7-day incident forecast | Predictive Analytics | — |
+| Agent workload table | Predictive Analytics | — |
+| SLA breach heatmap | Predictive Analytics → Historical patterns | — |
+| Peak volume heatmap | Predictive Analytics → Historical patterns | — |
+| Reopen rate by category | Predictive Analytics → Historical patterns | — |
+| Resolution time by category | Predictive Analytics → Historical patterns | — |
 
 Free OpenRouter models (GPT OSS 120B, Llama 3.3 70B, etc.) work fine for all AI features.
+
+---
+
+## Collaboration Features
+
+Live multi-user collaboration is built on WebSockets:
+
+- **Presence avatars** — see who else is viewing the same incident (up to 4 avatars in the header)
+- **Field locking** — when an agent edits a field (title, description, priority, category, assignee) it is locked for other users until they finish; a lock badge shows who is editing
+- **Real-time updates** — field changes broadcast instantly to all viewers of the same incident
+
+---
+
+## Localisation
+
+The UI is fully internationalised via i18next. Supported languages:
+
+| Code | Language |
+|------|----------|
+| `en` | English (default) |
+| `fr` | French |
+| `de` | German |
+| `es` | Spanish |
+| `zh` | Mandarin Chinese |
+| `hi` | Hindi |
+
+Switch language in Settings → Appearance → Language. The selection persists to `localStorage`.
 
 ---
 

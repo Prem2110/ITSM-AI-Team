@@ -16,6 +16,7 @@ const pageVariants = {
   exit:    (dir: number) => ({ opacity: 0, x: dir > 0 ? -32 : dir < 0 ? 32 : 0, y: dir === 0 ? -4 : 0 }),
 }
 import { Settings, Search, HelpCircle } from 'lucide-react'
+import sierraLogo from '@/assets/sierralogo.png'
 import { HelpModal } from '@/components/HelpModal'
 import { clearFakeUser, getFakeUser } from '@/api/auth'
 import { useNavigate } from 'react-router-dom'
@@ -177,7 +178,7 @@ export default function Layout() {
     dirRef.current = d
     return d
   }, [location.pathname])
-  const { data: setupStatus } = useSetupStatus()
+  useSetupStatus()
   const { t } = useTranslation()
 
   function openSettings(tab: SettingsTab) {
@@ -234,8 +235,8 @@ export default function Layout() {
         className="flex-none flex items-center justify-between px-3 bg-white border-b border-surface-200"
         style={{ height: 44 }}
       >
-        <Link to="/incidents" className="text-sm font-bold text-surface-800 tracking-tight" style={{ textDecoration: 'none' }}>
-          {setupStatus?.company_name ?? 'ITSM'}
+        <Link to="/incidents" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center' }}>
+          <img src={sierraLogo} alt="Sierra Digital" style={{ height: 26, width: 'auto', borderRadius: 3 }} />
         </Link>
         <div className="flex items-center gap-3">
           {/* Search Trigger Button */}
