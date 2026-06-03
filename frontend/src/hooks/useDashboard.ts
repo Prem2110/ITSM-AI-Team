@@ -5,6 +5,10 @@ import {
   getDashboardSlaCompliance,
   getDashboardTopCategories,
   getDashboardOpsKpis,
+  getSLABreachHeatmap,
+  getPeakVolume,
+  getReopenRate,
+  getResolutionTime,
 } from '@/api/dashboard'
 import { STALE } from './staleTime'
 
@@ -44,6 +48,38 @@ export function useDashboardOpsKpis(days = 30) {
   return useQuery({
     queryKey: ['dashboard-ops-kpis', days],
     queryFn: () => getDashboardOpsKpis(days),
+    staleTime: STALE.dashboard,
+  })
+}
+
+export function useSLABreachHeatmap(days = 90) {
+  return useQuery({
+    queryKey: ['dashboard-sla-heatmap', days],
+    queryFn: () => getSLABreachHeatmap(days),
+    staleTime: STALE.dashboard,
+  })
+}
+
+export function usePeakVolume(days = 90) {
+  return useQuery({
+    queryKey: ['dashboard-peak-volume', days],
+    queryFn: () => getPeakVolume(days),
+    staleTime: STALE.dashboard,
+  })
+}
+
+export function useReopenRate(days = 90) {
+  return useQuery({
+    queryKey: ['dashboard-reopen-rate', days],
+    queryFn: () => getReopenRate(days),
+    staleTime: STALE.dashboard,
+  })
+}
+
+export function useResolutionTime(days = 90) {
+  return useQuery({
+    queryKey: ['dashboard-resolution-time', days],
+    queryFn: () => getResolutionTime(days),
     staleTime: STALE.dashboard,
   })
 }

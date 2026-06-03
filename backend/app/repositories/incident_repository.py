@@ -1,5 +1,6 @@
 from __future__ import annotations
 import uuid
+from collections import defaultdict
 from datetime import datetime, timedelta
 from sqlalchemy import select, func, update
 from sqlalchemy.orm import selectinload
@@ -430,6 +431,116 @@ class IncidentRepository:
             .limit(limit)
         )
         return list(result.scalars().all())
+
+    async def get_sla_breach_heatmap(self, days: int = 90) -> list[dict]:
+        since = utcnow() - timedelta(days=days)
+        rows = (await self.session.execute(
+            select(Incident.category, Incident.priority, Incident.sla_breached)
+            .where(Incident.created_at >= since)
+        )).all()
+
+        totals: dict[tuple, int] = defaultdict(int)
+        breached_map: dict[tuple, int] = defaultdict(int)
+        for row in rows:
+            key = (row.category, row.priority)
+            totals[key] += 1
+            if row.sla_breached:
+                breached_map[key] += 1
+
+        result = []
+        for (cat, pri), total in totals.items():
+            b = breached_map.get((cat, pri), 0)
+            result.append({
+                "category": cat,
+                "priority": pri,
+                "total": total,
+                "breached": b,
+                "breach_pct": round(b / total * 100) if total else 0,
+            })
+        return result
+
+    async def get_peak_volume_heatmap(self, days: int = 90) -> dict:
+        since = utcnow() - timedelta(days=days)
+        rows = (await self.session.execute(
+            select(Incident.created_at).where(Incident.created_at >= since)
+        )).scalars().all()
+
+        cell_counts: dict[tuple[int, int], int] = defaultdict(int)
+        for dt in rows:
+            cell_counts[(dt.weekday(), dt.hour // 4)] += 1
+
+        max_count = max(cell_counts.values(), default=0)
+        return {
+            "cells": [
+                {"day": day, "hour_bucket": hb, "count": cnt}
+                for (day, hb), cnt in cell_counts.items()
+            ],
+            "max_count": max_count,
+        }
+
+    async def get_reopen_rate_by_category(self, days: int = 90) -> list[dict]:
+        since = utcnow() - timedelta(days=days)
+
+        resolved_rows = (await self.session.execute(
+            select(Incident.category, func.count().label("cnt"))
+            .where(
+                Incident.resolved_at.is_not(None),
+                Incident.resolved_at >= since,
+            )
+            .group_by(Incident.category)
+        )).all()
+
+        reopened_rows = (await self.session.execute(
+            select(Incident.category, func.count().label("cnt"))
+            .where(
+                Incident.resolved_at.is_not(None),
+                Incident.state.notin_(_CLOSED_STATES),
+                Incident.resolved_at >= since,
+            )
+            .group_by(Incident.category)
+        )).all()
+
+        reopened_map = {row.category: row.cnt for row in reopened_rows}
+        result = []
+        for row in resolved_rows:
+            reop = reopened_map.get(row.category, 0)
+            result.append({
+                "category": row.category,
+                "total_resolved": row.cnt,
+                "reopened": reop,
+                "reopen_pct": round(reop / row.cnt * 100) if row.cnt else 0,
+            })
+        result.sort(key=lambda x: x["reopen_pct"], reverse=True)
+        return result
+
+    async def get_resolution_time_by_category(self, days: int = 90) -> list[dict]:
+        since = utcnow() - timedelta(days=days)
+        rows = (await self.session.execute(
+            select(Incident.category, Incident.created_at, Incident.resolved_at)
+            .where(
+                Incident.resolved_at.is_not(None),
+                Incident.resolved_at >= since,
+            )
+        )).all()
+
+        cat_hours: dict[str, list[float]] = defaultdict(list)
+        for row in rows:
+            if row.created_at and row.resolved_at:
+                h = (row.resolved_at - row.created_at).total_seconds() / 3600
+                cat_hours[row.category].append(h)
+
+        result = []
+        for cat, hours in cat_hours.items():
+            s_hours = sorted(hours)
+            n = len(s_hours)
+            result.append({
+                "category": cat,
+                "count": n,
+                "avg_hours": round(sum(hours) / n, 1),
+                "p50_hours": round(s_hours[n // 2], 1),
+            })
+        result.sort(key=lambda x: x["avg_hours"], reverse=True)
+        return result
 
     async def get_top_categories(self, days: int, limit: int) -> list[dict]:
         now = utcnow()

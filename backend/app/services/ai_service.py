@@ -146,6 +146,28 @@ class AIService:
         raw = await self._chat(system, user)
         return {"notes": str(json.loads(raw).get("notes", ""))}
 
+    async def generate_ops_summary(self, snapshot: dict) -> dict:
+        system = (
+            "You are an ITSM operations analyst. "
+            "Write a concise 4-6 sentence operational summary covering: "
+            "current workload, SLA health, notable patterns, and one concrete recommendation. "
+            "Be specific with numbers. No filler phrases. "
+            "Return JSON with key: summary (string)."
+        )
+        lines = [
+            f"Open incidents: {snapshot['open_count']} total, {snapshot['breached_count']} SLA breached",
+            f"Resolved in last 7 days: {snapshot['resolved_7d']}",
+            f"SLA compliance (30d): {snapshot['sla_compliance_pct']}%",
+            f"Avg resolution time (30d): {snapshot['avg_resolution_hours']}h",
+            f"Top incident categories: {', '.join(snapshot['top_categories'])}",
+            f"Volume trend: {snapshot['trend']} (slope: {snapshot['slope']} incidents/day)",
+        ]
+        if snapshot.get("anomalies"):
+            lines.append(f"Active anomalies: {snapshot['anomalies']}")
+        user = "Current operational snapshot:\n" + "\n".join(lines)
+        raw = await self._chat(system, user)
+        return {"summary": str(json.loads(raw).get("summary", ""))}
+
     async def generate_handoff_report(self, open_incidents: list[dict]) -> dict:
         if not open_incidents:
             return {"report": "No open incidents at this time."}

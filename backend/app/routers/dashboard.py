@@ -62,3 +62,43 @@ async def get_ops_kpis(
     repo = IncidentRepository(session)
     await repo.mark_overdue_sla_breached()
     return await repo.get_ops_kpis(days)
+
+
+@router.get("/sla-breach-heatmap")
+async def get_sla_breach_heatmap(
+    days: int = Query(90, ge=7, le=365),
+    caller: CallerContext = require_scope("TicketRead"),
+    session: AsyncSession = Depends(get_db),
+) -> list:
+    repo = IncidentRepository(session)
+    return await repo.get_sla_breach_heatmap(days)
+
+
+@router.get("/peak-volume")
+async def get_peak_volume(
+    days: int = Query(90, ge=7, le=365),
+    caller: CallerContext = require_scope("TicketRead"),
+    session: AsyncSession = Depends(get_db),
+) -> dict:
+    repo = IncidentRepository(session)
+    return await repo.get_peak_volume_heatmap(days)
+
+
+@router.get("/reopen-rate")
+async def get_reopen_rate(
+    days: int = Query(90, ge=7, le=365),
+    caller: CallerContext = require_scope("TicketRead"),
+    session: AsyncSession = Depends(get_db),
+) -> list:
+    repo = IncidentRepository(session)
+    return await repo.get_reopen_rate_by_category(days)
+
+
+@router.get("/resolution-time")
+async def get_resolution_time(
+    days: int = Query(90, ge=7, le=365),
+    caller: CallerContext = require_scope("TicketRead"),
+    session: AsyncSession = Depends(get_db),
+) -> list:
+    repo = IncidentRepository(session)
+    return await repo.get_resolution_time_by_category(days)

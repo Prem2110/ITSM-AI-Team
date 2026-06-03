@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   ChevronLeft, AlertTriangle, ChevronDown, Loader2, Brain,
-  MessageSquare, Lock, ArrowRight, UserPlus, FileUp, FileText
+  MessageSquare, Lock, ArrowRight, UserPlus, FileUp, FileText, Lightbulb
 } from 'lucide-react'
 import { useCollaboration } from '@/hooks/useCollaboration'
 import type { PresenceUser } from '@/hooks/useCollaboration'
@@ -216,6 +216,127 @@ function SlaValue({ sla_resolution_due, sla_breached, state, created_at }: {
           Due {due.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
         </span>
       </div>
+    </div>
+  )
+}
+
+// ─── Structured Description ───────────────────────────────────────────────────
+
+const KEY_RE = /^([A-Za-z][A-Za-z ]{0,39}):\s*(.*)$/
+
+function parseStructuredDescription(text: string): Map<string, string> | null {
+  const lines = text.split('\n')
+  const kvCount = lines.filter(l => KEY_RE.test(l)).length
+  if (kvCount < 3) return null
+
+  const result = new Map<string, string>()
+  let currentKey: string | null = null
+  let currentValue: string[] = []
+
+  for (const line of lines) {
+    const m = line.match(KEY_RE)
+    if (m) {
+      if (currentKey !== null) result.set(currentKey, currentValue.join('\n').trim())
+      currentKey = m[1].trim()
+      currentValue = m[2].trim() ? [m[2].trim()] : []
+    } else if (currentKey !== null && line.trim()) {
+      currentValue.push(line.trim())
+    }
+  }
+  if (currentKey !== null) result.set(currentKey, currentValue.join('\n').trim())
+
+  for (const [k, v] of result) {
+    if (!v) result.delete(k)
+  }
+
+  return result.size >= 2 ? result : null
+}
+
+function StatusChip({ value }: { value: string }) {
+  const up = value.toUpperCase()
+  if (value.length > 60) return <span className="text-xs text-surface-700">{value}</span>
+  if (up.includes('FAIL') || up.includes('ERROR')) {
+    return (
+      <span className="inline-flex text-2xs font-bold px-1.5 py-0.5 bg-red-50 border border-red-200 text-red-700" style={{ borderRadius: 3 }}>
+        {value}
+      </span>
+    )
+  }
+  if (up === 'SUCCESS' || up === 'OK' || up === 'RESOLVED') {
+    return (
+      <span className="inline-flex text-2xs font-bold px-1.5 py-0.5 bg-green-50 border border-green-200 text-green-700" style={{ borderRadius: 3 }}>
+        {value}
+      </span>
+    )
+  }
+  if (value === 'unknown' || value === 'UNKNOWN' || value === 'N/A') {
+    return <span className="text-xs text-surface-400 italic">{value}</span>
+  }
+  return <span className="text-xs text-surface-700">{value}</span>
+}
+
+const SUGGESTED_FIX_KEYS = new Set(['Suggested Fix', 'Fix', 'Recommendation', 'Resolution Suggestion'])
+
+function StructuredDescription({ text }: { text: string }) {
+  const [fixExpanded, setFixExpanded] = useState(false)
+
+  const parsed = useMemo(() => parseStructuredDescription(text), [text])
+
+  if (!parsed) {
+    return <p className="text-xs text-surface-700 whitespace-pre-wrap leading-relaxed">{text}</p>
+  }
+
+  let fixKey: string | null = null
+  let fixValue: string | null = null
+  for (const k of SUGGESTED_FIX_KEYS) {
+    if (parsed.has(k)) { fixKey = k; fixValue = parsed.get(k)!; break }
+  }
+
+  const fields = [...parsed.entries()].filter(([k]) => k !== fixKey)
+
+  return (
+    <div className="flex flex-col gap-3">
+      {/* Field grid */}
+      <div className="grid gap-x-4 gap-y-1.5" style={{ gridTemplateColumns: 'max-content 1fr' }}>
+        {fields.map(([key, value]) => (
+          <React.Fragment key={key}>
+            <span className="text-2xs font-semibold text-surface-400 uppercase tracking-wider whitespace-nowrap pt-0.5">
+              {key}
+            </span>
+            <StatusChip value={value} />
+          </React.Fragment>
+        ))}
+      </div>
+
+      {/* Suggested Fix callout */}
+      {fixKey && fixValue && (
+        <div className="border border-amber-200 bg-amber-50/40" style={{ borderRadius: 4 }}>
+          <button
+            type="button"
+            onClick={() => setFixExpanded(v => !v)}
+            className="w-full flex items-center justify-between px-3 py-2 text-left hover:bg-amber-50/60 transition-colors"
+          >
+            <div className="flex items-center gap-1.5">
+              <Lightbulb size={11} className="text-amber-600 flex-none" />
+              <span className="text-2xs font-semibold text-amber-700 uppercase tracking-wider">
+                {fixKey}
+              </span>
+            </div>
+            <ChevronDown
+              size={11}
+              className="text-amber-400 flex-none transition-transform"
+              style={{ transform: fixExpanded ? 'rotate(180deg)' : 'none' }}
+            />
+          </button>
+          {fixExpanded && (
+            <div className="px-3 pb-3 border-t border-amber-100">
+              <p className="text-xs text-surface-700 whitespace-pre-wrap leading-relaxed mt-2">
+                {fixValue}
+              </p>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   )
 }
@@ -639,42 +760,7 @@ export default function IncidentDetail() {
         )}
 
         <div className="flex items-center gap-2 flex-none">
-          {/* Clickable status badge (option 2) — opens full transition popover */}
-          {isAgent && validTransitions.length > 0 ? (
-            <div className="relative">
-              <button
-                onClick={() => setTransitionOpen(v => !v)}
-                disabled={transitionMut.isPending}
-                className="flex items-center gap-0.5 disabled:opacity-60"
-                title="Change status"
-              >
-                <StateBadge state={incident.state} />
-                <ChevronDown size={9} style={{ color: '#64748b', marginLeft: 1, marginTop: 1 }} />
-              </button>
-              {transitionOpen && (
-                <>
-                  <div className="fixed inset-0 z-[9]" onClick={() => setTransitionOpen(false)} />
-                  <div
-                    className="absolute left-0 top-full mt-1.5 bg-white border border-surface-200 shadow-lg z-10 py-1"
-                    style={{ borderRadius: 4, minWidth: 148 }}
-                  >
-                    {validTransitions.map(toState => (
-                      <button
-                        key={toState}
-                        onClick={() => handleTransitionClick(toState)}
-                        className="flex items-center gap-2 w-full text-left px-3 py-2 text-xs text-surface-700 hover:bg-surface-50"
-                      >
-                        <div style={{ width: 6, height: 6, borderRadius: '50%', background: STEPPER_META[toState]?.color ?? '#94a3b8', flexShrink: 0 }} />
-                        {TRANSITION_LABELS[toState] ?? toState.replace(/_/g, ' ')}
-                      </button>
-                    ))}
-                  </div>
-                </>
-              )}
-            </div>
-          ) : (
-            <StateBadge state={incident.state} />
-          )}
+          <StateBadge state={incident.state} />
           <PriorityBadge priority={incident.priority} priorities={priorities} />
 
           {incident.sla_breached && (
@@ -690,7 +776,6 @@ export default function IncidentDetail() {
             </span>
           )}
 
-          {/* AI Help button — all users, gated on AI being configured */}
           {aiEnabled && (
             <button
               type="button"
@@ -705,41 +790,6 @@ export default function IncidentDetail() {
               <Brain size={11} className="flex-none" />
               AI Help
             </button>
-          )}
-
-          {/* Pending spinner */}
-          {isAgent && transitionMut.isPending && (
-            <div className="flex items-center gap-1 text-xs text-surface-500">
-              <Loader2 size={11} className="animate-spin flex-none" />
-              Saving…
-            </div>
-          )}
-          {/* Inline primary action buttons (option 3) */}
-          {isAgent && !transitionMut.isPending && primaryTransitions.map(toState => {
-            const color = STEPPER_META[toState]?.color ?? '#475569'
-            return (
-              <button
-                key={toState}
-                onClick={() => handleTransitionClick(toState)}
-                className="flex items-center gap-1 text-xs px-2 py-0.5 border hover:bg-surface-50 transition-colors"
-                style={{ borderRadius: 2, borderColor: `${color}55`, color }}
-              >
-                {TRANSITION_LABELS[toState] ?? toState.replace(/_/g, ' ')}
-                <ArrowRight size={9} className="flex-none" />
-              </button>
-            )
-          })}
-
-          {/* Requester "close" button */}
-          {canClose && (
-            <SpinButton
-              onClick={() => transitionMut.mutate({ to_state: 'closed' })}
-              isLoading={transitionMut.isPending}
-              className="text-xs border border-surface-200 px-2 py-0.5 hover:bg-surface-50 text-surface-600 hover:text-surface-800 transition-colors disabled:opacity-50"
-              style={{ borderRadius: 2 }}
-            >
-              {transitionMut.isPending ? 'Closing…' : 'Close Incident'}
-            </SpinButton>
           )}
         </div>
       </div>
@@ -858,7 +908,7 @@ export default function IncidentDetail() {
                   </div>
                 )}
                 <div
-                  className={`text-xs text-surface-700 whitespace-pre-wrap leading-relaxed${isAgent && !isClosed && !lockedBy('description') ? ' cursor-pointer hover:bg-surface-50 -mx-1 px-1' : ''}`}
+                  className={isAgent && !isClosed && !lockedBy('description') ? 'cursor-pointer hover:bg-surface-50 -mx-1 px-1 rounded' : ''}
                   onClick={() => {
                     if (isAgent && !isClosed && !lockedBy('description')) {
                       setDescDraft(incident.description)
@@ -868,7 +918,10 @@ export default function IncidentDetail() {
                   }}
                   title={isAgent && !isClosed && !lockedBy('description') ? 'Click to edit' : undefined}
                 >
-                  {incident.description || <span className="text-surface-400 italic">No description provided.</span>}
+                  {incident.description
+                    ? <StructuredDescription text={incident.description} />
+                    : <span className="text-surface-400 italic text-xs">No description provided.</span>
+                  }
                 </div>
               </>
             )}
@@ -957,6 +1010,86 @@ export default function IncidentDetail() {
           className="flex-none overflow-y-auto border-l border-surface-200 bg-surface-50 px-4 py-4"
           style={{ width: 236 }}
         >
+          {/* Status transitions */}
+          {(isAgent && !isClosed) && (
+            <FieldSection label="Status">
+              <div className="flex flex-col gap-1.5">
+                {transitionMut.isPending ? (
+                  <div className="flex items-center gap-1.5 text-xs text-surface-500 py-0.5">
+                    <Loader2 size={11} className="animate-spin flex-none" />
+                    Saving…
+                  </div>
+                ) : (
+                  <>
+                    {primaryTransitions.map(toState => {
+                      const color = STEPPER_META[toState]?.color ?? '#475569'
+                      return (
+                        <button
+                          key={toState}
+                          onClick={() => handleTransitionClick(toState)}
+                          className="flex items-center justify-between w-full text-xs px-2.5 py-1.5 border transition-colors hover:opacity-80"
+                          style={{ borderRadius: 2, borderColor: `${color}40`, color, background: `${color}0d` }}
+                        >
+                          <span>{TRANSITION_LABELS[toState] ?? toState.replace(/_/g, ' ')}</span>
+                          <ArrowRight size={10} className="flex-none" />
+                        </button>
+                      )
+                    })}
+                    {validTransitions.filter(t => !primaryTransitions.includes(t)).length > 0 && (
+                      <div className="relative">
+                        <button
+                          onClick={() => setTransitionOpen(v => !v)}
+                          className="flex items-center gap-1 text-2xs text-surface-400 hover:text-surface-600 transition-colors"
+                        >
+                          <ChevronDown
+                            size={10}
+                            style={{ transition: 'transform 0.15s', transform: transitionOpen ? 'rotate(180deg)' : 'none' }}
+                          />
+                          More transitions
+                        </button>
+                        {transitionOpen && (
+                          <>
+                            <div className="fixed inset-0 z-[9]" onClick={() => setTransitionOpen(false)} />
+                            <div
+                              className="absolute left-0 top-full mt-1 bg-white border border-surface-200 shadow-lg z-10 py-1"
+                              style={{ borderRadius: 4, minWidth: 160 }}
+                            >
+                              {validTransitions.filter(t => !primaryTransitions.includes(t)).map(toState => (
+                                <button
+                                  key={toState}
+                                  onClick={() => handleTransitionClick(toState)}
+                                  className="flex items-center gap-2 w-full text-left px-3 py-2 text-xs text-surface-700 hover:bg-surface-50"
+                                >
+                                  <div style={{ width: 6, height: 6, borderRadius: '50%', background: STEPPER_META[toState]?.color ?? '#94a3b8', flexShrink: 0 }} />
+                                  {TRANSITION_LABELS[toState] ?? toState.replace(/_/g, ' ')}
+                                </button>
+                              ))}
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+            </FieldSection>
+          )}
+
+          {canClose && (
+            <FieldSection label="Status">
+              <SpinButton
+                onClick={() => transitionMut.mutate({ to_state: 'closed' })}
+                isLoading={transitionMut.isPending}
+                className="w-full text-xs border border-surface-200 px-2 py-1.5 hover:bg-surface-50 text-surface-600 hover:text-surface-800 transition-colors disabled:opacity-50"
+                style={{ borderRadius: 2 }}
+              >
+                {transitionMut.isPending ? 'Closing…' : 'Close Incident'}
+              </SpinButton>
+            </FieldSection>
+          )}
+
+          <div className="border-t border-surface-100 mb-1" />
+
           <FieldSection label="Priority">
             {isAgent && !isClosed && lockedBy('priority') ? (
               <>

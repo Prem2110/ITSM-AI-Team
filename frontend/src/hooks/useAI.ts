@@ -2,7 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   getAIStatus, getSLARisk, getAnomalies, getForecast,
   getAgentWorkload, classifyIncident, getSimilarIncidents, patchAISettings, testConnection,
-  summarizeIncident, draftReply, draftResolution, generateHandoffReport,
+  summarizeIncident, draftReply, draftResolution, generateHandoffReport, generateOpsSummary,
 } from '@/api/ai'
 import type { AISettingsPatch } from '@/api/ai'
 
@@ -73,4 +73,8 @@ export function useDraftResolution() {
 
 export function useHandoffReport() {
   return useMutation({ mutationFn: generateHandoffReport })
+}
+
+export function useOpsSummary() {
+  return useMutation({ mutationFn: generateOpsSummary })
 }

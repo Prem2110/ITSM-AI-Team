@@ -5,10 +5,10 @@ import {
   ResponsiveContainer, CartesianGrid, ReferenceLine,
 } from 'recharts'
 import { Brain, TrendingUp, TrendingDown, Minus, AlertTriangle, Shield, Users, Zap, Lock, Info } from 'lucide-react'
-import { useAIStatus, useSLARisk, useAnomalies, useForecast, useAgentWorkload, useClassifyIncident } from '@/hooks/useAI'
-import { usePatchAISettings } from '@/hooks/useAI'
+import { useAIStatus, useSLARisk, useAnomalies, useForecast, useAgentWorkload, useClassifyIncident, usePatchAISettings, useOpsSummary } from '@/hooks/useAI'
 import { useMe } from '@/hooks/useMe'
 import { usePriorities } from '@/hooks'
+import { useSLABreachHeatmap, usePeakVolume, useReopenRate, useResolutionTime } from '@/hooks/useDashboard'
 import { PriorityBadge } from '@/components/PriorityBadge'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -406,6 +406,349 @@ function ClassifyWidget() {
   )
 }
 
+// ─── SLA Breach Heatmap ───────────────────────────────────────────────────────
+
+function breachCellBg(pct: number): string {
+  if (pct === 0) return '#f0fdf4'
+  if (pct < 20) return '#fef9c3'
+  if (pct < 40) return '#fed7aa'
+  if (pct < 65) return '#fca5a5'
+  return '#ef4444'
+}
+function breachCellFg(pct: number): string {
+  if (pct === 0) return '#16a34a'
+  if (pct < 20) return '#854d0e'
+  if (pct < 40) return '#c2410c'
+  if (pct < 65) return '#991b1b'
+  return '#ffffff'
+}
+
+function SLABreachHeatmapPanel() {
+  const { data, isLoading } = useSLABreachHeatmap()
+  const { data: priorities } = usePriorities()
+
+  const categories = data ? [...new Set(data.map(d => d.category))].sort() : []
+  const priorityCount = priorities?.length || 5
+  const priorityNames = priorities?.map(p => p.name) || Array.from({ length: priorityCount }, (_, i) => `P${i}`)
+
+  type HeatCell = { category: string; priority: number; total: number; breached: number; breach_pct: number }
+  const cellMap = new Map<string, Map<number, HeatCell>>()
+  for (const cell of data || []) {
+    if (!cellMap.has(cell.category)) cellMap.set(cell.category, new Map())
+    cellMap.get(cell.category)!.set(cell.priority, cell)
+  }
+
+  return (
+    <Panel
+      title="SLA Breach Rate — Category × Priority"
+      icon={Shield}
+      tooltip="Breach rate per category/priority combination over the last 90 days. Green = clean, red = high breach rate. Blank = no incidents in that combination."
+    >
+      {isLoading ? (
+        <Sk h={120} />
+      ) : !data?.length ? (
+        <div className="flex flex-col items-center justify-center py-6 text-center">
+          <Shield size={24} className="text-green-500 mb-2" />
+          <p className="text-xs text-surface-500">No historical incident data yet</p>
+        </div>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="border-collapse w-full">
+            <thead>
+              <tr>
+                <th className="text-left pb-2 text-2xs text-surface-400 font-medium" style={{ minWidth: 120, paddingRight: 12 }}>Category</th>
+                {priorityNames.map((name, i) => (
+                  <th key={i} className="pb-2 text-2xs text-surface-500 font-medium text-center" style={{ width: 72 }}>
+                    {name}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {categories.map(cat => (
+                <tr key={cat}>
+                  <td className="py-0.5 text-xs text-surface-600 font-medium truncate" style={{ maxWidth: 140, paddingRight: 12 }}>{cat}</td>
+                  {Array.from({ length: priorityCount }, (_, i) => {
+                    const cell = cellMap.get(cat)?.get(i)
+                    return (
+                      <td key={i} className="py-0.5 px-1">
+                        {cell ? (
+                          <Tip text={`${cat} · ${priorityNames[i]}: ${cell.breached}/${cell.total} breached`}>
+                            <div
+                              className="flex items-center justify-center font-semibold cursor-help mx-auto"
+                              style={{ width: 60, height: 28, background: breachCellBg(cell.breach_pct), color: breachCellFg(cell.breach_pct), borderRadius: 3, fontSize: 11 }}
+                            >
+                              {cell.breach_pct}%
+                            </div>
+                          </Tip>
+                        ) : (
+                          <div className="flex items-center justify-center text-surface-200 mx-auto" style={{ width: 60, height: 28, background: '#f8fafc', borderRadius: 3, fontSize: 11 }}>—</div>
+                        )}
+                      </td>
+                    )
+                  })}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </Panel>
+  )
+}
+
+// ─── Peak Volume Heatmap ──────────────────────────────────────────────────────
+
+const DAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+const HOUR_LABELS = ['12am–4am', '4–8am', '8am–12pm', '12–4pm', '4–8pm', '8pm–12am']
+
+function peakBg(count: number, maxCount: number): string {
+  if (!count || !maxCount) return '#f8fafc'
+  const r = count / maxCount
+  if (r < 0.2) return '#dbeafe'
+  if (r < 0.45) return '#93c5fd'
+  if (r < 0.7) return '#3b82f6'
+  return '#1d4ed8'
+}
+function peakFg(count: number, maxCount: number): string {
+  if (!count || !maxCount) return '#cbd5e1'
+  return count / maxCount >= 0.45 ? '#ffffff' : '#1e40af'
+}
+
+function PeakVolumePanel() {
+  const { data, isLoading } = usePeakVolume()
+
+  const lookup: Record<number, Record<number, number>> = {}
+  for (const cell of data?.cells || []) {
+    if (!lookup[cell.day]) lookup[cell.day] = {}
+    lookup[cell.day][cell.hour_bucket] = cell.count
+  }
+  const maxCount = data?.max_count || 0
+
+  return (
+    <Panel
+      title="Peak Volume — Day × Hour"
+      icon={TrendingUp}
+      tooltip="Incident volume by day of week and 4-hour time slot over the last 90 days. Dark blue = busiest slots. Use this to align on-call coverage with actual demand."
+    >
+      {isLoading ? (
+        <Sk h={140} />
+      ) : !data?.cells.length ? (
+        <p className="text-xs text-surface-400 py-6 text-center">No incident data yet</p>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="border-collapse w-full">
+            <thead>
+              <tr>
+                <th style={{ width: 36 }} />
+                {HOUR_LABELS.map((label, i) => (
+                  <th key={i} className="pb-2 text-2xs text-surface-400 font-medium text-center" style={{ width: 80 }}>{label}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {DAY_LABELS.map((day, d) => (
+                <tr key={d}>
+                  <td className="pr-2 py-0.5 text-xs text-surface-600 font-medium">{day}</td>
+                  {Array.from({ length: 6 }, (_, hb) => {
+                    const count = lookup[d]?.[hb] || 0
+                    return (
+                      <td key={hb} className="py-0.5 px-1">
+                        <Tip text={`${day} ${HOUR_LABELS[hb]}: ${count} incident${count !== 1 ? 's' : ''}`}>
+                          <div
+                            className="flex items-center justify-center font-semibold cursor-help mx-auto"
+                            style={{ width: 70, height: 28, background: peakBg(count, maxCount), color: peakFg(count, maxCount), borderRadius: 3, fontSize: 11 }}
+                          >
+                            {count || ''}
+                          </div>
+                        </Tip>
+                      </td>
+                    )
+                  })}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <div className="flex items-center gap-1.5 mt-3 justify-end">
+            {[['#dbeafe','low'], ['#93c5fd','mid'], ['#3b82f6','high'], ['#1d4ed8','peak']].map(([bg, label]) => (
+              <div key={label} className="flex items-center gap-1 text-2xs text-surface-400">
+                <div style={{ width: 12, height: 12, background: bg, borderRadius: 2 }} />
+                {label}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </Panel>
+  )
+}
+
+// ─── Reopen Rate ──────────────────────────────────────────────────────────────
+
+function ReopenRatePanel() {
+  const { data, isLoading } = useReopenRate()
+
+  return (
+    <Panel
+      title="Reopen Rate by Category"
+      icon={AlertTriangle}
+      tooltip="Categories where the most resolved tickets are later reopened. High reopen rate = resolutions that don't stick — often a symptom of root-cause misdiagnosis or premature closure."
+    >
+      {isLoading ? (
+        <div className="flex flex-col gap-2">{[...Array(4)].map((_, i) => <Sk key={i} h={24} />)}</div>
+      ) : !data?.length ? (
+        <div className="flex flex-col items-center justify-center py-6 text-center">
+          <Shield size={24} className="text-green-500 mb-2" />
+          <p className="text-xs text-surface-500">No resolved incidents yet</p>
+        </div>
+      ) : (
+        <div>
+          <div className="flex text-2xs text-surface-400 font-medium pb-1.5 border-b border-surface-100 mb-1">
+            <span className="flex-1">Category</span>
+            <span className="w-16 text-right">Resolved</span>
+            <span className="w-16 text-right">Reopened</span>
+            <span className="w-12 text-right">Rate</span>
+          </div>
+          {data.map(row => (
+            <div key={row.category} className="flex items-center py-1 border-b border-surface-50 last:border-0">
+              <span className="flex-1 text-xs text-surface-700 truncate">{row.category}</span>
+              <span className="w-16 text-right text-2xs text-surface-400">{row.total_resolved}</span>
+              <span className="w-16 text-right text-2xs text-surface-400">{row.reopened}</span>
+              <span
+                className="w-12 text-right text-2xs font-semibold"
+                style={{ color: row.reopen_pct >= 15 ? '#b91c1c' : row.reopen_pct >= 8 ? '#c2410c' : row.reopen_pct > 0 ? '#a16207' : '#16a34a' }}
+              >
+                {row.reopen_pct}%
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+    </Panel>
+  )
+}
+
+// ─── Resolution Time ──────────────────────────────────────────────────────────
+
+function resTimeColor(hours: number): string {
+  if (hours <= 4) return '#16a34a'
+  if (hours <= 12) return '#a16207'
+  if (hours <= 48) return '#c2410c'
+  return '#b91c1c'
+}
+
+function ResolutionTimePanel() {
+  const { data, isLoading } = useResolutionTime()
+  const maxAvg = data?.length ? Math.max(...data.map(d => d.avg_hours), 1) : 1
+
+  return (
+    <Panel
+      title="Avg Resolution Time by Category"
+      icon={Zap}
+      tooltip="Average hours from incident creation to resolution per category over the last 90 days. P50 is the median. Hover the label for P50. Long bars = categories that drain the most time."
+    >
+      {isLoading ? (
+        <div className="flex flex-col gap-2">{[...Array(4)].map((_, i) => <Sk key={i} h={28} />)}</div>
+      ) : !data?.length ? (
+        <div className="flex flex-col items-center justify-center py-6 text-center">
+          <Shield size={24} className="text-green-500 mb-2" />
+          <p className="text-xs text-surface-500">No resolved incidents yet</p>
+        </div>
+      ) : (
+        <div className="flex flex-col gap-2.5">
+          {data.map(row => (
+            <div key={row.category}>
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-xs text-surface-700 truncate flex-1 mr-2">{row.category}</span>
+                <div className="flex items-center gap-2 flex-none">
+                  <span className="text-2xs text-surface-400">{row.count} tickets</span>
+                  <Tip text={`Avg: ${row.avg_hours}h · P50: ${row.p50_hours}h`} position="left">
+                    <span className="text-2xs font-semibold cursor-help" style={{ color: resTimeColor(row.avg_hours) }}>
+                      {row.avg_hours}h
+                    </span>
+                  </Tip>
+                </div>
+              </div>
+              <div className="bg-surface-100 overflow-hidden" style={{ height: 5, borderRadius: 9999 }}>
+                <div
+                  style={{
+                    width: `${Math.min(row.avg_hours / maxAvg * 100, 100)}%`,
+                    height: '100%',
+                    background: resTimeColor(row.avg_hours),
+                    borderRadius: 9999,
+                    transition: 'width 0.4s',
+                  }}
+                />
+              </div>
+            </div>
+          ))}
+          <div className="flex gap-4 mt-1 justify-end">
+            {[['#16a34a', '≤4h'], ['#a16207', '≤12h'], ['#c2410c', '≤48h'], ['#b91c1c', '>48h']].map(([color, label]) => (
+              <div key={label} className="flex items-center gap-1 text-2xs text-surface-400">
+                <div style={{ width: 8, height: 8, borderRadius: 9999, background: color }} />
+                {label}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </Panel>
+  )
+}
+
+// ─── Ops Summary ─────────────────────────────────────────────────────────────
+
+function OpsSummaryPanel({ aiEnabled, isAgent }: { aiEnabled: boolean; isAgent: boolean }) {
+  const summary = useOpsSummary()
+
+  return (
+    <Panel
+      title="Weekly Ops Summary"
+      icon={Brain}
+      tooltip="One AI call that reads your full operational state — open incidents, SLA compliance, anomalies, resolution trends — and writes a brief actionable briefing. Manual trigger only, not automatic."
+      badge={<span className="text-2xs text-violet-600 font-semibold bg-violet-50 px-1.5 py-0.5 border border-violet-200" style={{ borderRadius: 3 }}>AI</span>}
+    >
+      {summary.data ? (
+        <div>
+          <p className="text-sm text-surface-700 leading-relaxed whitespace-pre-wrap">{summary.data.summary}</p>
+          <button
+            onClick={() => summary.reset()}
+            className="mt-3 text-2xs text-surface-400 hover:text-surface-600 transition-colors"
+          >
+            Clear
+          </button>
+        </div>
+      ) : (
+        <div className="flex flex-col items-start gap-3">
+          <p className="text-2xs text-surface-400 max-w-xl">
+            Compiles open incidents, SLA compliance, anomaly signals, and 14-day volume trends into a single AI-written briefing.
+            One call per generation — not automatic, not per page load.
+          </p>
+          {!aiEnabled && (
+            <p className="text-2xs text-amber-600">Enable AI in Settings to use this feature.</p>
+          )}
+          {!isAgent && aiEnabled && (
+            <p className="text-2xs text-surface-400">Available to agents and admins.</p>
+          )}
+          {summary.isError && (
+            <p className="text-2xs text-red-600">Failed to generate. Check AI settings.</p>
+          )}
+          {aiEnabled && isAgent && (
+            <button
+              onClick={() => summary.mutate()}
+              disabled={summary.isPending}
+              className="text-xs font-medium bg-violet-600 text-white hover:bg-violet-700 disabled:opacity-50 disabled:cursor-not-allowed px-3 transition-colors"
+              style={{ height: 28, borderRadius: 2 }}
+            >
+              {summary.isPending ? 'Generating…' : 'Generate ops summary'}
+            </button>
+          )}
+        </div>
+      )}
+    </Panel>
+  )
+}
+
 // ─── Similar Incidents info ───────────────────────────────────────────────────
 
 function SimilarIncidentsInfo() {
@@ -475,6 +818,7 @@ export default function PredictiveAnalytics() {
   const { data: aiStatus } = useAIStatus()
   const { data: me } = useMe()
   const isAdmin = me?.scopes?.includes('Admin') ?? false
+  const isAgent = me?.scopes?.includes('Agent') ?? false
   const aiEnabled = aiStatus?.ai_enabled ?? false
 
   return (
@@ -496,15 +840,36 @@ export default function PredictiveAnalytics() {
         </div>
       </div>
 
-      {/* Always-on: SLA Risk + Anomaly Detection */}
+      {/* Real-time: SLA Risk + Anomaly Detection */}
       <div className="grid grid-cols-2 gap-4 mb-4">
         <SLARiskPanel />
         <AnomalyPanel />
       </div>
 
-      {/* Forecast (full width) */}
+      {/* Forecast */}
       <div className="mb-4">
         <ForecastPanel />
+      </div>
+
+      {/* Historical patterns section */}
+      <div className="border-t border-surface-200 pt-5 mb-5">
+        <span className="text-2xs font-semibold text-surface-400 uppercase tracking-widest">Historical Patterns</span>
+      </div>
+
+      {/* SLA Breach Heatmap */}
+      <div className="mb-4">
+        <SLABreachHeatmapPanel />
+      </div>
+
+      {/* Peak Volume Heatmap */}
+      <div className="mb-4">
+        <PeakVolumePanel />
+      </div>
+
+      {/* Reopen Rate + Resolution Time */}
+      <div className="grid grid-cols-2 gap-4 mb-4">
+        <ReopenRatePanel />
+        <ResolutionTimePanel />
       </div>
 
       {/* Agent Workload */}
@@ -525,9 +890,12 @@ export default function PredictiveAnalytics() {
         {!aiEnabled ? (
           <AIDisabledBanner isAdmin={isAdmin} />
         ) : (
-          <div className="grid grid-cols-2 gap-4">
-            <ClassifyWidget />
-            <SimilarIncidentsInfo />
+          <div className="flex flex-col gap-4">
+            <OpsSummaryPanel aiEnabled={aiEnabled} isAgent={isAgent || isAdmin} />
+            <div className="grid grid-cols-2 gap-4">
+              <ClassifyWidget />
+              <SimilarIncidentsInfo />
+            </div>
           </div>
         )}
       </div>

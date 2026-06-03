@@ -71,14 +71,16 @@ async def get_sla_risk(
     repo = IncidentRepository(session)
     await repo.mark_overdue_sla_breached()
     incidents = await repo.get_sla_risk_incidents()
-    now = utcnow()
+    now = utcnow().replace(tzinfo=None)
     result = []
     for inc in incidents:
         if inc.sla_breached:
             risk = 1.0
         elif inc.sla_resolution_due:
-            total = (inc.sla_resolution_due - inc.created_at).total_seconds()
-            elapsed = (now - inc.created_at).total_seconds()
+            due = inc.sla_resolution_due.replace(tzinfo=None) if inc.sla_resolution_due.tzinfo else inc.sla_resolution_due
+            created = inc.created_at.replace(tzinfo=None) if inc.created_at.tzinfo else inc.created_at
+            total = (due - created).total_seconds()
+            elapsed = (now - created).total_seconds()
             risk = min(elapsed / total, 1.0) if total > 0 else 0.0
         else:
             risk = 0.0
@@ -106,13 +108,15 @@ async def get_anomalies(
     repo = IncidentRepository(session)
     incidents = await repo.get_recent_incidents_for_analytics(hours=168)
     now = utcnow()
-    two_hours_ago = now - timedelta(hours=2)
+    # strip tz for comparison — HANA returns naive datetimes
+    two_hours_ago = (now - timedelta(hours=2)).replace(tzinfo=None)
 
     recent: dict[str, int] = defaultdict(int)
     historical: dict[str, int] = defaultdict(int)
     for inc in incidents:
         historical[inc.category] += 1
-        if inc.created_at >= two_hours_ago:
+        cmp = inc.created_at.replace(tzinfo=None) if inc.created_at.tzinfo else inc.created_at
+        if cmp >= two_hours_ago:
             recent[inc.category] += 1
 
     anomalies = []
@@ -138,14 +142,15 @@ async def get_forecast(
 ) -> dict:
     repo = IncidentRepository(session)
     incidents = await repo.get_recent_incidents_for_analytics(hours=24 * 21)
-    now = utcnow()
+    now = utcnow().replace(tzinfo=None)
 
     dates, counts = [], []
     for i in range(13, -1, -1):
         day_end = now - timedelta(days=i)
         day_start = now - timedelta(days=i + 1)
         dates.append((now - timedelta(days=i)).strftime("%Y-%m-%d"))
-        counts.append(sum(1 for inc in incidents if day_start <= inc.created_at < day_end))
+        inc_dates = [inc.created_at.replace(tzinfo=None) if inc.created_at.tzinfo else inc.created_at for inc in incidents]
+        counts.append(sum(1 for d in inc_dates if day_start <= d < day_end))
 
     n = len(counts)
     x_mean = (n - 1) / 2
@@ -424,6 +429,70 @@ async def draft_resolution(
             description=incident.description or "",
             events=events,
         )
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=f"AI service error: {exc}")
+
+
+@router.post("/ops-summary")
+async def ops_summary(
+    caller: CallerContext = require_scope("Agent"),
+    session: AsyncSession = Depends(get_db),
+) -> dict:
+    settings = await AppSettingsRepository(session).get()
+    svc = _build_ai_service(settings)
+    if not svc:
+        raise HTTPException(status_code=503, detail="AI features are disabled or not configured")
+
+    repo = IncidentRepository(session)
+    await repo.mark_overdue_sla_breached()
+
+    summary_data = await repo.get_dashboard_summary(caller.user_id)
+    kpis = await repo.get_ops_kpis(30)
+    sla = await repo.get_sla_compliance(30)
+    top_cats = await repo.get_top_categories(30, 3)
+    trends14 = await repo.get_trends(14)
+    recent_incs = await repo.get_recent_incidents_for_analytics(hours=168)
+
+    resolved_7d = sum(trends14["resolved_counts"][-7:])
+
+    counts = trends14["new_counts"]
+    n = len(counts)
+    x_mean = (n - 1) / 2
+    y_mean = sum(counts) / n if n else 0
+    num = sum((i - x_mean) * (c - y_mean) for i, c in enumerate(counts))
+    den = sum((i - x_mean) ** 2 for i in range(n))
+    slope = round(num / den, 3) if den else 0
+    trend = "increasing" if slope > 0.1 else "decreasing" if slope < -0.1 else "stable"
+
+    now = utcnow()
+    two_hours_ago = (now - timedelta(hours=2)).replace(tzinfo=None)
+    recent_cat: dict[str, int] = defaultdict(int)
+    hist_cat: dict[str, int] = defaultdict(int)
+    for inc in recent_incs:
+        hist_cat[inc.category] += 1
+        cmp = inc.created_at.replace(tzinfo=None) if inc.created_at.tzinfo else inc.created_at
+        if cmp >= two_hours_ago:
+            recent_cat[inc.category] += 1
+
+    anomaly_strs = []
+    for cat, cnt in recent_cat.items():
+        expected = max(hist_cat[cat] / 84.0, 0.5)
+        if cnt / expected >= 2.5:
+            anomaly_strs.append(f"{cat} ({cnt} in 2h, {round(cnt / expected, 1)}× normal)")
+
+    snapshot = {
+        "open_count": summary_data["all_open"],
+        "breached_count": summary_data["breached"],
+        "resolved_7d": resolved_7d,
+        "sla_compliance_pct": sla["compliance_pct"],
+        "avg_resolution_hours": kpis["avg_resolution_hours"],
+        "top_categories": [c["category"] for c in top_cats],
+        "trend": trend,
+        "slope": slope,
+        "anomalies": ", ".join(anomaly_strs) if anomaly_strs else None,
+    }
+    try:
+        return await svc.generate_ops_summary(snapshot)
     except Exception as exc:
         raise HTTPException(status_code=502, detail=f"AI service error: {exc}")
 

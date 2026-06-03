@@ -137,3 +137,8 @@ export async function generateHandoffReport(): Promise<{ report: string }> {
   const { data } = await client.post('/ai/handoff-report', {})
   return data
 }
+
+export async function generateOpsSummary(): Promise<{ summary: string }> {
+  const { data } = await client.post('/ai/ops-summary', {})
+  return data
+}
