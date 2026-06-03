@@ -611,16 +611,14 @@ function DangerZone() {
 // Only free-tier OpenRouter models are listed here.
 // Any other model ID can be pasted directly into the input below.
 const OPENROUTER_MODELS = [
-  { id: 'meta-llama/llama-3.3-70b-instruct:free',         label: 'Llama 3.3 70B'       },
-  { id: 'meta-llama/llama-3.1-8b-instruct:free',          label: 'Llama 3.1 8B'        },
-  { id: 'meta-llama/llama-3.2-3b-instruct:free',          label: 'Llama 3.2 3B'        },
   { id: 'mistralai/mistral-7b-instruct:free',              label: 'Mistral 7B'          },
+  { id: 'meta-llama/llama-3.3-70b-instruct:free',         label: 'Llama 3.3 70B'       },
+  { id: 'meta-llama/llama-3.2-3b-instruct:free',          label: 'Llama 3.2 3B'        },
   { id: 'google/gemma-3-12b-it:free',                      label: 'Gemma 3 12B'         },
   { id: 'google/gemma-2-9b-it:free',                       label: 'Gemma 2 9B'          },
   { id: 'qwen/qwen-2.5-7b-instruct:free',                  label: 'Qwen 2.5 7B'         },
   { id: 'deepseek/deepseek-r1-distill-llama-70b:free',     label: 'DeepSeek R1 70B'     },
   { id: 'microsoft/phi-3-mini-128k-instruct:free',         label: 'Phi-3 Mini 128K'     },
-  { id: 'openchat/openchat-7b:free',                       label: 'OpenChat 7B'         },
 ]
 
 // ─── Model Picker combobox ────────────────────────────────────────────────────
@@ -734,7 +732,7 @@ function AITab() {
   const testConn = useTestConnection()
 
   const [apiKey, setApiKey]   = useState('')
-  const [model, setModel]     = useState('meta-llama/llama-3.1-8b-instruct:free')
+  const [model, setModel]     = useState('mistralai/mistral-7b-instruct:free')
   const [showKey, setShowKey] = useState(false)
   const [saved, setSaved]     = useState(false)
 
@@ -743,7 +741,7 @@ function AITab() {
 
   useEffect(() => {
     if (aiStatus) {
-      setModel(aiStatus.model || 'meta-llama/llama-3.1-8b-instruct:free')
+      setModel(aiStatus.model || 'mistralai/mistral-7b-instruct:free')
       if (aiStatus.has_key) setApiKey('••••••••••••••••')
     }
   }, [aiStatus])

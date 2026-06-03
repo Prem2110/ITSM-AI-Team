@@ -11,7 +11,7 @@ _HEADERS_EXTRA = {
 
 
 class AIService:
-    def __init__(self, api_key: str, model: str = "meta-llama/llama-3.1-8b-instruct:free") -> None:
+    def __init__(self, api_key: str, model: str = "mistralai/mistral-7b-instruct:free") -> None:
         self.api_key = api_key
         self.model = model
 
@@ -26,7 +26,6 @@ class AIService:
                         {"role": "system", "content": system},
                         {"role": "user", "content": user},
                     ],
-                    "response_format": {"type": "json_object"},
                     "temperature": 0.1,
                 },
             )
