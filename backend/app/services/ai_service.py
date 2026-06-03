@@ -3,7 +3,7 @@ import json
 import httpx
 from ..config import app_config
 
-_BASE = "https://openrouter.ai/api/v1"
+_BASE = "https://openrouter.ai/v1"
 _HEADERS_EXTRA = {
     "HTTP-Referer": "https://github.com/ITSM",
     "X-Title": "ITSM Predictive Analytics",
