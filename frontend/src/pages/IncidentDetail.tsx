@@ -1014,8 +1014,30 @@ export default function IncidentDetail() {
                     disabled={draftReplyMut.isPending}
                     className="flex items-center gap-1 text-2xs text-indigo-600 hover:text-indigo-800 disabled:opacity-50 transition-colors"
                   >
-                    <Brain size={10} className="flex-none" />
-                    {draftReplyMut.isPending ? t('incidentDetail.drafting') : t('incidentDetail.draftReply')}
+                    {draftReplyMut.isPending ? (
+                      <motion.div
+                        animate={{ rotate: 360 }}
+                        transition={{ duration: 1.1, repeat: Infinity, ease: 'linear' }}
+                        style={{ width: 10, height: 10, flexShrink: 0 }}
+                      >
+                        <Brain size={10} />
+                      </motion.div>
+                    ) : (
+                      <Brain size={10} className="flex-none" />
+                    )}
+                    {draftReplyMut.isPending ? (
+                      <span className="flex items-center gap-0.5">
+                        {t('incidentDetail.drafting')}
+                        {[0, 1, 2].map(i => (
+                          <motion.span
+                            key={i}
+                            animate={{ opacity: [0, 1, 0] }}
+                            transition={{ duration: 1.2, repeat: Infinity, delay: i * 0.2, ease: 'easeInOut' }}
+                            style={{ display: 'inline-block' }}
+                          >·</motion.span>
+                        ))}
+                      </span>
+                    ) : t('incidentDetail.draftReply')}
                   </button>
                 ) : <span />}
                 <SpinButton
