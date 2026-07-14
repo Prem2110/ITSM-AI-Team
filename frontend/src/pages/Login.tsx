@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
+import { useQueryClient } from '@tanstack/react-query'
 import { setFakeUser } from '@/api/auth'
 
 const SEEDED_USERS = [
@@ -13,9 +14,11 @@ export default function Login() {
   const [selected, setSelected] = useState(SEEDED_USERS[1].email)
   const navigate = useNavigate()
   const { t } = useTranslation()
+  const qc = useQueryClient()
 
   function handleLogin() {
     setFakeUser(selected)
+    qc.clear()
     navigate('/incidents')
   }
 

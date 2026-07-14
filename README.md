@@ -192,8 +192,11 @@ On incident creation, `sla_resolution_due = now + priority.sla_hours`. Each requ
 | Method | Path | Scope | Description |
 |--------|------|-------|-------------|
 | GET | `/health` | — | Health check |
-| GET | `/api/session` | TicketRead | Current user + scopes |
-| GET | `/api/config` | TicketRead | Priorities, categories, states |
+| GET | `/api/me` | TicketRead | Current user (`user_id`, `email`, `name`, `scopes`) — good first call to sanity-check auth |
+| GET | `/api/config/priorities` | TicketRead | `[{level, name, color, sla_hours}]` |
+| GET | `/api/config/categories` | TicketRead | List of category strings |
+| GET | `/api/config/sources` | TicketRead | List of source strings |
+| GET | `/api/config/states` | TicketRead | `{states, transitions}` |
 | GET | `/api/setup/status` | — | Whether first-run setup is complete |
 | POST | `/api/setup/complete` | — | Complete setup wizard |
 | GET | `/api/settings` | TicketRead | App settings (company, SLA targets, etc.) |
@@ -216,9 +219,10 @@ On incident creation, `sla_resolution_due = now + priority.sla_hours`. Each requ
 | Method | Path | Scope | Description |
 |--------|------|-------|-------------|
 | GET | `/api/incidents/{id}/events` | TicketRead | Audit trail |
-| POST | `/api/incidents/{id}/events` | TicketWrite | Add comment / work note |
-| POST | `/api/attachments` | TicketWrite | Upload file |
-| GET | `/api/attachments/{id}` | TicketRead | Download file |
+| POST | `/api/incidents/{id}/events` | TicketWrite | Add comment (`event_type: "comment"`) or work note (`event_type: "work_note"`, requires `Agent` scope in addition to `TicketWrite`) |
+| POST | `/api/incidents/{id}/attachments` | TicketWrite | Upload file (multipart `file` field, max 20 MB, allowed types: txt/pdf/png/jpeg/json/zip) |
+| GET | `/api/incidents/{id}/attachments/{attachment_id}` | TicketRead | Download file |
+| DELETE | `/api/incidents/{id}/attachments/{attachment_id}` | Agent | Delete file |
 
 ### Dashboard
 
@@ -342,18 +346,52 @@ state_transitions:
 
 ## External API Integration
 
-Any system can create incidents by POSTing directly to the backend:
+Any external system (n8n, another backend, a script, Postman) can call the API directly — no SDK needed, just HTTP + one auth header.
+
+### 1. Pick a base URL
+
+| Environment | Base URL | Notes |
+|---|---|---|
+| Local dev | `http://localhost:8000` | SQLite, `AUTH_MODE=fake` |
+| Deployed backend (direct) | `https://poc-mc10-org-ai-itsm-api.cfapps.us10-001.hana.ondemand.com` | Has its own public CF route; `/docs` works here (Swagger UI). Talks to SAP HANA Cloud. Bypasses the approuter. **Use this for external integrations.** |
+| Deployed approuter (browser entry point) | `https://poc-mc10-org-ai-itsm-approuter.cfapps.us10-001.hana.ondemand.com` | Serves the built frontend + proxies `/api/*` to the same backend. This is what the browser UI uses — not needed for API-only integrations. |
+
+> The backend has its own direct public route today because `no-route` is commented out in `mta.yaml`. If that's tightened later (recommended — see [SAP BTP Deployment](#sap-btp-deployment)), external calls will need to go through the approuter instead.
+
+### 2. Authenticate every request
+
+With `AUTH_MODE=fake` (current mode, including the deployed environment), every request needs:
+
+```
+Content-Type: application/json
+X-Fake-User: <email of an existing user in the target database>
+```
+
+The backend looks up that email in the `users` table and maps the user's `role` to scopes (`requester` → `TicketRead, TicketWrite`; `agent` → + `Agent`; `admin` → + `Admin`). Missing header → `401`; unknown email → `401`. **There is no anonymous/service identity** — the email must already exist as a user row in whichever database you're pointed at (local SQLite vs. the deployed HANA schema have different users).
+
+Known users in the deployed HANA schema (`ITSMAI_users` table, `TABLE_PREFIX=ITSMAI_`):
+
+| Email | Name | Role | Scopes |
+|---|---|---|---|
+| `k.byju@sierradigitalinc.com` | Karthik Byju | admin | TicketRead, TicketWrite, Agent, Admin |
+| `karthik.byju@sierradigital.com` | Karthik Byju | admin | TicketRead, TicketWrite, Agent, Admin |
+| `prem@sierradigital.com` | Prem | agent | TicketRead, TicketWrite, Agent |
+| `ashok@sierradigital.com` | Ashok | requester | TicketRead, TicketWrite |
+
+For automated integrations, prefer creating a dedicated service user (e.g. `n8n-integration@yourdomain.com`, role `agent`) over reusing a real person's login, so automated tickets are attributable to the integration rather than a human. If XSUAA (`AUTH_MODE=real`) is re-enabled, replace `X-Fake-User` with `Authorization: Bearer <xsuaa_token>` obtained via client-credentials flow instead.
+
+### 3. Create an incident
 
 ```bash
-curl -X POST https://<itsm-api-url>/api/incidents \
+curl -X POST https://poc-mc10-org-ai-itsm-api.cfapps.us10-001.hana.ondemand.com/api/incidents \
   -H "Content-Type: application/json" \
-  -H "X-Fake-User: admin@yourcompany.com" \
+  -H "X-Fake-User: prem@sierradigital.com" \
   -d '{
-    "title": "SAP system down in Plant 1200",
-    "description": "Users unable to log in since 09:00 UTC",
-    "priority": 1,
-    "category": "SAP Integration",
-    "source": "email"
+    "title": "VPN not connecting",
+    "description": "User cannot connect to VPN from home network since this morning.",
+    "priority": 2,
+    "category": "Network",
+    "source": "n8n"
   }'
 ```
 
@@ -362,12 +400,28 @@ curl -X POST https://<itsm-api-url>/api/incidents \
 | `title` | ✅ | any string |
 | `description` | ✅ | any string |
 | `priority` | ✅ | `0` Highly Critical · `1` Critical · `2` High · `3` Medium · `4` Low |
-| `category` | ✅ | `Network` · `Hardware` · `Software` · `Account Access` · `SAP Integration` |
-| `source` | ✅ | `web` · `email` · `classifier_escalation` · `fix_failed_escalation` |
-| `requester_id` | ❌ | UUID — defaults to the `X-Fake-User` |
-| `assignee_id` | ❌ | UUID of an agent |
+| `category` | ✅ | any string (UI offers `Network`, `Hardware`, `Software`, `Account Access`, `SAP Integration`, but not enforced server-side) |
+| `source` | ❌ | free string, defaults to `"Web Portal"` — set it to identify the calling system, e.g. `"n8n"`, `"email"` |
+| `requester_id` | ❌ | user id — defaults to the caller's own id (resolved from `X-Fake-User`) |
+| `assignee_id` | ❌ | user id of an agent to pre-assign |
 
-When XSUAA is re-enabled, replace `X-Fake-User` with `Authorization: Bearer <xsuaa_token>` obtained via client credentials flow.
+Response is `201` with the full incident, including the generated ticket `number` (e.g. `TCK-0001`) and computed `sla_resolution_due`. Incidents always start in state `new` — you cannot set `state` on create; use `POST /api/incidents/{id}/transition` afterwards to move it through the workflow (see [Incidents](#incidents) above for the valid state graph).
+
+### 4. n8n walkthrough
+
+1. Add an **HTTP Request** node.
+2. Click **Import cURL** and paste the command from step 3 above.
+3. n8n auto-populates Method/URL/Headers/Body. Replace the static field values with expressions bound to upstream node data, e.g. `{{$json.title}}`.
+4. If n8n runs in Docker/cloud rather than alongside the API, make sure the URL is externally reachable — the deployed backend URL above works from anywhere; `localhost:8000` only works when n8n and the API share a host.
+5. On success you get `201` and the incident JSON — feed `number` or `id` into downstream nodes (Slack notification, email confirmation, etc.).
+
+### Other integration points
+
+Everything in the [API Reference](#api-reference) above is reachable the same way (same base URL, same `X-Fake-User` header, matching scope). A few worth calling out for automation:
+- `POST /api/incidents/{id}/transition` — advance a ticket's workflow state (e.g. auto-resolve from an external monitoring system)
+- `POST /api/incidents/{id}/events` — post a comment or work note back onto a ticket from an external system
+- `GET /api/incidents` — poll for new/open tickets (filter with `state`, `category`, `sla_breached`, etc.)
+- `POST /api/incidents/{id}/attachments` — attach a file (multipart upload, not JSON)
 
 ---
 

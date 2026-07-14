@@ -20,7 +20,7 @@ import sierraLogo from '@/assets/sierralogo.png'
 import { HelpModal } from '@/components/HelpModal'
 import { clearFakeUser, getFakeUser } from '@/api/auth'
 import { useNavigate } from 'react-router-dom'
-import { useIsFetching } from '@tanstack/react-query'
+import { useIsFetching, useQueryClient } from '@tanstack/react-query'
 import { useSetupStatus } from '@/hooks/useSetupStatus'
 import { useTranslation } from 'react-i18next'
 import { SettingsModal, type SettingsTab } from '@/components/SettingsModal'
@@ -90,6 +90,7 @@ interface NavItem {
 export default function Layout() {
   const navigate = useNavigate()
   const location = useLocation()
+  const qc = useQueryClient()
   const email = getFakeUser() ?? ''
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [settingsTab, setSettingsTab]   = useState<SettingsTab>('general')
@@ -217,6 +218,7 @@ export default function Layout() {
 
   function handleLogout() {
     clearFakeUser()
+    qc.clear()
     navigate('/login')
   }
 

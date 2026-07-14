@@ -113,6 +113,14 @@ All `state_change` events use `{ from_state, to_state }` — both from the seed 
 
 ---
 
+### Connecting external apps to the API
+
+Full endpoint reference, request/response payloads, and step-by-step integration instructions (including an n8n walkthrough) live in `README.md` → "External API Integration". Quick pointers if working in this area:
+
+- Every request needs `X-Fake-User: <email>` (dev/current-prod `AUTH_MODE=fake`) or `Authorization: Bearer <XSUAA JWT>` (`AUTH_MODE=real`) — the email must already exist as a `users` row; there is no anonymous/service identity.
+- Deployed backend has its own direct CF route (`itsm-api...cfapps...`, `/docs` works there) separate from the approuter (`itsm-approuter...`) that serves the browser UI — external integrations should hit the backend URL directly.
+- `POST /api/incidents` creates a ticket (`title`, `description`, `priority` 0–4, `category` required; `source`, `assignee_id`, `requester_id` optional) — always starts in state `new`.
+
 ## Key non-obvious constraints
 
 - **`assignee` relationship is `lazy="raise"`** — always add `selectinload(Incident.assignee)` when you need it in a query.
